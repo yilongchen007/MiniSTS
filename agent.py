@@ -121,7 +121,18 @@ class JawWorm(Enemy):
         all_turns: ItemSet[Action] = ItemSequence(chomp, regular_turn)
         action_set = PreventRepeats(all_turns, (bellow, 2), (thrash, 3), (chomp, 2), consecutive=True)
         super().__init__("JawWorm", max_health.get(), action_set)
-        
+
+class BigJawWorm(Enemy):
+    def __init__(self, game_state: GameState):
+        max_health = RandomUniformRange(80, 88) if game_state.ascention < 7 else RandomUniformRange(84, 92)
+        chomp: Action = DealAttackDamage(ConstValue(22 if game_state.ascention < 2 else 24)).To(PlayerAgentTarget())
+        thrash: Action = DealAttackDamage(ConstValue(14)).To(PlayerAgentTarget()).And(AddBlock(ConstValue(10)).To(SelfAgentTarget()))
+        bellow: Action = ApplyStatus(ConstValue(6 if game_state.ascention < 2 else 8 if game_state.ascention < 17 else 10), StatusEffectRepo.STRENGTH).And(AddBlock(ConstValue(10))).To(SelfAgentTarget())
+        regular_turn: ItemSet[Action] = RandomizedItemSet((bellow, 0.45), (thrash, 0.30), (chomp, 0.25))
+        all_turns: ItemSet[Action] = ItemSequence(chomp, regular_turn)
+        action_set = PreventRepeats(all_turns, (bellow, 2), (thrash, 3), (chomp, 2), consecutive=True)
+        super().__init__("BigJawWorm", max_health.get(), action_set)
+	        
 class Goblin(Enemy):
     def __init__(self, game_state: GameState):
         max_health = ConstValue(44)

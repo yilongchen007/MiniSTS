@@ -39,6 +39,19 @@ class AddMana(Action):
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState) -> None:
         battle_state.add_to_mana(self.val.get())
 
+
+class DrawCard(Action):
+    def __init__(self, val: Value):
+        super().__init__(val)
+        self.val = val
+
+    def play(self, by: Agent, game_state: GameState, battle_state: BattleState) -> None:
+        battle_state.draw(self.val.get())
+
+    def __repr__(self) -> str:
+        amount = self.val.peek()
+        return f"Draw {amount} {'card' if amount == 1 else 'cards'}"
+
 class PlayCard(Action):
     def __init__(self, card_index: int):
         super().__init__()

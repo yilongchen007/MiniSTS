@@ -1,7 +1,7 @@
 from __future__ import annotations
 from target.agent_target import AgentSet, ChooseAgentTarget, SelfAgentTarget, AllAgentsTarget, RandomAgentTarget
 from target.card_target import CardPile, SelfCardTarget, ChooseCardTarget
-from action.action import Action, AddMana
+from action.action import Action, AddMana, DrawCard
 from action.agent_targeted_action import DealAttackDamage, ApplyStatus, AddBlock, Heal
 from action.card_targeted_action import CardTargetedL1, Exhaust, AddCopy, UpgradeCard, DiscardCard
 from config import CardType, Character, Rarity
@@ -62,12 +62,18 @@ class CardGen:
     Searing_Blow = lambda: Card("SearingBlow", CardType.ATTACK, ConstValue(2), Character.IRON_CLAD, Rarity.UNCOMMON, DealAttackDamage(LinearUpgradable(12, 4)).To(ChooseAgentTarget(AgentSet.ENEMY)))
     Bash = lambda: Card("Bash", CardType.ATTACK, ConstValue(2), Character.IRON_CLAD, Rarity.STARTER, DealAttackDamage(UpgradableOnce(8, 10)).And(ApplyStatus(UpgradableOnce(2, 3), StatusEffectRepo.VULNERABLE)).To(ChooseAgentTarget(AgentSet.ENEMY)))
     Anger = lambda: Card("Anger", CardType.ATTACK, ConstValue(0), Character.IRON_CLAD, Rarity.COMMON, DealAttackDamage(UpgradableOnce(6, 8)).To(ChooseAgentTarget(AgentSet.ENEMY)), AddCopy(CardPile.DISCARD).To(SelfCardTarget()))
-    # TODO upgrade for Armament
-    Armaments = lambda: Card("Armament", CardType.SKILL, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, AddBlock(ConstValue(5)).To(SelfAgentTarget()), UpgradeCard().To(ChooseCardTarget(CardPile.HAND)))
+    Pommel_Strike = lambda: Card("Pommel Strike", CardType.ATTACK, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, DealAttackDamage(UpgradableOnce(9, 10)).To(ChooseAgentTarget(AgentSet.ENEMY)), DrawCard(UpgradableOnce(1, 2)))
+    Shrug_It_Off = lambda: Card("Shrug It Off", CardType.SKILL, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, AddBlock(UpgradableOnce(8, 11)).To(SelfAgentTarget()), DrawCard(ConstValue(1)))
+    Bloodletting = lambda: Card("Bloodletting", CardType.SKILL, ConstValue(0), Character.IRON_CLAD, Rarity.UNCOMMON, AddMana(UpgradableOnce(2, 3)))
     Cleave = lambda: Card("Cleave", CardType.ATTACK, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, DealAttackDamage(UpgradableOnce(8, 11)).To(AllAgentsTarget(AgentSet.ENEMY)))
     Impervious = lambda: Card("Impervious", CardType.SKILL, ConstValue(2), Character.IRON_CLAD, Rarity.RARE, AddBlock(UpgradableOnce(30, 40)).To(SelfAgentTarget()), Exhaust().To(SelfCardTarget()))
+
+    # TODO upgrade for Armament
+    Armaments = lambda: Card("Armament", CardType.SKILL, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, AddBlock(ConstValue(5)).To(SelfAgentTarget()), UpgradeCard().To(ChooseCardTarget(CardPile.HAND)))
+
     # TODO this doesn't work yet, here for reference
-    Survivor = lambda: Card("Survivor", CardType.SKILL, ConstValue(1), Character.SILENT, Rarity.COMMON, AddBlock(ConstValue(8)).To(SelfAgentTarget()), DiscardCard().To(ChooseCardTarget(CardPile.HAND)))
+    # Survivor = lambda: Card("Survivor", CardType.SKILL, ConstValue(1), Character.SILENT, Rarity.COMMON, AddBlock(ConstValue(8)).To(SelfAgentTarget()), DiscardCard().To(ChooseCardTarget(CardPile.HAND)))
+    
     # NEW CARDS
     Stimulate = lambda: Card("Stimulate", CardType.SKILL, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, ApplyStatus(ConstValue(4), StatusEffectRepo.VIGOR).To(SelfAgentTarget()))
     Batter = lambda: Card("Batter", CardType.SKILL, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, DealAttackDamage(ConstValue(0), ConstValue(10)).To(ChooseAgentTarget(AgentSet.ENEMY)))
@@ -172,6 +178,20 @@ class CardRepo:
         deck: list[Card] = CardRepo.get_basics()
         deck += [CardGen.Suffer()]
         return "basics-suffer", deck
+
+    @staticmethod
+    def get_scenario_5() -> tuple[str, list[Card]]:
+        pommel_strike = CardGen.Pommel_Strike()
+        pommel_strike.upgrade()
+        deck: list[Card] = [
+            CardGen.Shrug_It_Off(),
+            CardGen.Defend(),
+            CardGen.Strike(),
+            CardGen.Bash(),
+            CardGen.Bloodletting(),
+            pommel_strike,
+        ]
+        return "shrug-defend-strike-bash-bloodletting-pommel+", deck
     
     @staticmethod
     def anonymize_scenario(scenario: tuple[str, list[Card]]) -> tuple[str, list[Card]]:

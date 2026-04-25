@@ -83,6 +83,7 @@ def _load_scenario(deck: list[Card]) -> list[Card]:
         CardRepo.get_scenario_2,
         CardRepo.get_scenario_3,
         CardRepo.get_scenario_4,
+        CardRepo.get_scenario_5,
     ]
     print("\nScenarios:")
     for index, scenario in enumerate(scenarios):

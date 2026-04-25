@@ -67,6 +67,8 @@ def get_scenario(index: int, anonymize: bool) -> Callable[[], tuple[str, list[Ca
         scenario = CardRepo.get_scenario_3
     elif index == 4:
         scenario = CardRepo.get_scenario_4
+    elif index == 5:
+        scenario = CardRepo.get_scenario_5
     else:
         raise Exception(f"Scenario not recognized: {index}")
     if anonymize:
