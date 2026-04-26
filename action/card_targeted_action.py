@@ -87,16 +87,7 @@ class AddCopy(CardTargetedL2):
         self.card_pile = card_pile
     
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState, target: Card) -> None:
-        if self.card_pile == CardPile.DISCARD:
-            battle_state.discard_pile.append(copy.deepcopy(target))
-        elif self.card_pile == CardPile.DRAW:
-            battle_state.draw_pile.append(copy.deepcopy(target))
-        elif self.card_pile == CardPile.HAND:
-            battle_state.hand.append(copy.deepcopy(target))
-        elif self.card_pile == CardPile.EXHAUST:
-            battle_state.exhaust_pile.append(copy.deepcopy(target))
-        else:
-            raise Exception("Unrecognized CardPile to add a copy to")
+        battle_state.add_card_to_pile(copy.deepcopy(target), self.card_pile)
 
 class UpgradeCard(CardTargetedL2):
     def __init__(self):
@@ -110,5 +101,4 @@ class DiscardCard(CardTargetedL2):
         super().__init__()
 
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState, target: Card) -> None:
-        pass
-        # battle_state.discard(target)
+        battle_state.discard(target)

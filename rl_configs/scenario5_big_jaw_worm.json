@@ -1,0 +1,45 @@
+{
+  "env": {
+    "enemy": "big_jaw_worm",
+    "max_steps": 200
+  },
+  "deck": [
+    {"name": "Shrug It Off"},
+    {"name": "Defend"},
+    {"name": "Defend"},
+    {"name": "Defend"},
+    {"name": "Defend"},
+    {"name": "Strike"},
+    {"name": "Strike"},
+    {"name": "Strike"},
+    {"name": "Strike"},
+    {"name": "Battle_Trance"},
+    {"name": "Bloodletting"},
+    {"name": "True_Grit", "upgrades": 1},
+    {"name": "Pommel Strike", "upgrades": 1}
+  ],
+  "encoder": {
+    "max_turns": 20,
+    "max_hand_size": 10
+  },
+  "training": {
+    "episodes": 1500,
+    "batch_size": 64,
+    "replay_size": 50000,
+    "hidden_size": 128,
+    "learning_rate": 0.001,
+    "gamma": 0.99,
+    "epsilon_start": 1.0,
+    "epsilon_end": 0.05,
+    "epsilon_fraction": 0.6,
+    "target_sync_steps": 200,
+    "log_every": 50,
+    "seed": 0,
+    "save_path": "rl_runs/dqn_scenario5_jawworm.pt"
+  },
+  "evaluation": {
+    "checkpoint": "rl_runs/dqn_scenario5_jawworm.pt",
+    "episodes": 100,
+    "trace": false
+  }
+}

@@ -7,12 +7,13 @@ import numpy as np
 from action.action import EndAgentTurn, PlayCard
 from agent import BigJawWorm, JawWorm
 from battle import BattleState
-from card import CardRepo
+from card import Card
 from config import Character, Verbose
 from game import GameState
 from rl.actions import RLAction, RLActionType
 from rl.bot import RLBattleBot
 from rl.encoder import StateEncoder
+from rl.experiment_config import DEFAULT_DECK, build_deck
 
 
 @dataclass(frozen=True)
@@ -24,12 +25,19 @@ class StepResult:
 
 
 class MiniSTSEnv:
-    """DQN-friendly environment. Initial supported task: scenario 5 vs BigJawWorm."""
+    """DQN-friendly battle environment for fixed-deck experiments."""
 
-    def __init__(self, encoder: StateEncoder | None = None, max_steps: int = 200, enemy_name: str = "big_jaw_worm"):
+    def __init__(
+        self,
+        encoder: StateEncoder | None = None,
+        max_steps: int = 200,
+        enemy_name: str = "big_jaw_worm",
+        deck: list[Card] | None = None,
+    ):
         self.encoder = encoder or StateEncoder()
         self.max_steps = max_steps
         self.enemy_name = enemy_name
+        self.deck = deck
         self.bot = RLBattleBot()
         self.game_state: GameState | None = None
         self.battle_state: BattleState | None = None
@@ -42,13 +50,13 @@ class MiniSTSEnv:
 
     @property
     def action_size(self) -> int:
-        # 0=end turn, 1..10=play hand index 0..9. Scenario 5 starts with 6 cards.
+        # 0=end turn, 1..10=play hand index 0..9.
         return 11
 
     def reset(self) -> np.ndarray:
         self.bot = RLBattleBot()
         self.game_state = GameState(Character.IRON_CLAD, self.bot, 0)
-        self.game_state.set_deck(*CardRepo.get_scenario_5()[1])
+        self.game_state.set_deck(*(self.deck if self.deck is not None else build_deck(DEFAULT_DECK)))
         self.battle_state = BattleState(self.game_state, self._create_enemy(), verbose=Verbose.NO_LOG)
         self.steps = 0
         self.battle_state.mana = self.game_state.max_mana

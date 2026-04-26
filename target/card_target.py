@@ -1,4 +1,5 @@
 from __future__ import annotations
+import random
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from card import Card
@@ -71,8 +72,40 @@ class ChooseCardTarget(CardTarget):
     
     def __repr__(self) -> str:
         return f"your choice in {get_card_pile_name(self.among)}"
-'''
+
 class AllCardsTarget(CardTarget):
     def __init__(self, among: CardPile):
         self.among = among
-'''
+
+    def get(self, by: Card, battle_state: BattleState) -> list[Card]:
+        return get_card_pile_data(self.among, battle_state)
+
+    def __repr__(self) -> str:
+        return f"all cards in {get_card_pile_name(self.among)}"
+
+class RandomCardTarget(CardTarget):
+    def __init__(self, among: CardPile, count: int = 1):
+        self.among = among
+        self.count = count
+
+    def get(self, by: Card, battle_state: BattleState) -> list[Card]:
+        cards = get_card_pile_data(self.among, battle_state)
+        if len(cards) == 0:
+            raise CardTarget.NoneAvailabeException()
+        return random.sample(cards, min(self.count, len(cards)))
+
+    def __repr__(self) -> str:
+        return f"{self.count} random card(s) in {get_card_pile_name(self.among)}"
+
+class UpgradeSwitchCardTarget(CardTarget):
+    def __init__(self, base_target: CardTarget, upgraded_target: CardTarget):
+        self.base_target = base_target
+        self.upgraded_target = upgraded_target
+
+    def get(self, by: Card, battle_state: BattleState) -> list[Card]:
+        if by.upgrade_count > 0:
+            return self.upgraded_target.get(by, battle_state)
+        return self.base_target.get(by, battle_state)
+
+    def __repr__(self) -> str:
+        return f"{self.base_target}; upgraded: {self.upgraded_target}"

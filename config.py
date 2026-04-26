@@ -14,6 +14,8 @@ class CardType(Enum):
     ATTACK = 1
     SKILL = 2
     POWER = 3
+    STATUS = 4
+    CURSE = 5
 
 class Rarity(Enum):
     STARTER = 1

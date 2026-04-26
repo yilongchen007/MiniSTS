@@ -61,6 +61,7 @@ class DQNAgent:
         self.observation_size = observation_size
         self.action_size = action_size
         self.gamma = gamma
+        self.hidden_size = hidden_size
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.online = QNetwork(observation_size, action_size, hidden_size).to(self.device)
         self.target = QNetwork(observation_size, action_size, hidden_size).to(self.device)
@@ -117,6 +118,7 @@ class DQNAgent:
                 "observation_size": self.observation_size,
                 "action_size": self.action_size,
                 "gamma": self.gamma,
+                "hidden_size": self.hidden_size,
             },
             path,
         )

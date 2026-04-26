@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 evaluation_results/
 rl_runs/
+local_refs/
 *.log
 *.zip
 *.out

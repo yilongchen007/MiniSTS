@@ -6,7 +6,9 @@ import numpy as np
 import torch
 
 from rl.dqn import DQNAgent
+from rl.encoder import StateEncoder
 from rl.env import MiniSTSEnv
+from rl.experiment_config import ExperimentConfig, card_names_from_deck
 
 
 def load_agent(path: str, env: MiniSTSEnv, device: str | None = None) -> DQNAgent:
@@ -14,6 +16,7 @@ def load_agent(path: str, env: MiniSTSEnv, device: str | None = None) -> DQNAgen
     agent = DQNAgent(
         observation_size=env.observation_size,
         action_size=env.action_size,
+        hidden_size=int(checkpoint.get("hidden_size", 128)),
         device=device,
     )
     agent.online.load_state_dict(checkpoint["online"])
@@ -94,15 +97,36 @@ def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, flo
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--checkpoint", default="rl_runs/dqn_scenario5_jawworm.pt")
-    parser.add_argument("--episodes", type=int, default=100)
-    parser.add_argument("--trace", action="store_true")
-    parser.add_argument("--enemy", choices=["jaw_worm", "big_jaw_worm"], default="big_jaw_worm")
-    parser.add_argument("--device", default=None)
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--config", type=str, default=None)
+    pre_args, _ = pre_parser.parse_known_args()
+    experiment_config = ExperimentConfig.load(pre_args.config)
+    evaluation_config = experiment_config.section("evaluation")
+    env_config = experiment_config.section("env")
+
+    parser = argparse.ArgumentParser(parents=[pre_parser])
+    parser.add_argument("--checkpoint", default=evaluation_config.get("checkpoint", "rl_runs/dqn_scenario5_jawworm.pt"))
+    parser.add_argument("--episodes", type=int, default=evaluation_config.get("episodes", 100))
+    parser.add_argument("--trace", action="store_true", default=evaluation_config.get("trace", False))
+    parser.add_argument("--enemy", choices=["jaw_worm", "big_jaw_worm"], default=env_config.get("enemy", "big_jaw_worm"))
+    parser.add_argument("--device", default=evaluation_config.get("device"))
     args = parser.parse_args()
 
-    env = MiniSTSEnv(enemy_name=args.enemy)
+    experiment_config = ExperimentConfig.load(args.config)
+    deck = experiment_config.build_deck()
+    encoder_config = experiment_config.section("encoder")
+    card_names = tuple(encoder_config.get("card_names", card_names_from_deck(deck)))
+    encoder = StateEncoder(
+        max_turns=int(encoder_config.get("max_turns", 20)),
+        max_hand_size=int(encoder_config.get("max_hand_size", 10)),
+        card_names=card_names,
+    )
+    env = MiniSTSEnv(
+        encoder=encoder,
+        enemy_name=args.enemy,
+        deck=deck,
+        max_steps=int(env_config.get("max_steps", 200)),
+    )
     agent = load_agent(args.checkpoint, env, args.device)
 
     wins = 0

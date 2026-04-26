@@ -51,6 +51,7 @@ class UpgradableOnce(Upgradable):
 
 class LinearUpgradable(Upgradable):
     def __init__(self, val: int, step: int, threshold: int = 1):
+        super().__init__()
         self.val = val
         self.step = step
         self.threshold = threshold

@@ -35,18 +35,20 @@ STATUS_EFFECTS = (
 
 @dataclass(frozen=True)
 class StateEncoder:
-    """Fixed encoder for the first DQN scope: scenario 5 vs JawWorm."""
+    """Fixed-size encoder for configurable fixed-deck battles."""
 
     max_turns: int = 20
     max_hand_size: int = 10
+    card_names: tuple[str, ...] = CARD_NAMES
+    intent_names: tuple[str, ...] = INTENT_NAMES
 
     @property
     def size(self) -> int:
         scalar_count = 8
         status_count = len(STATUS_EFFECTS) * 2
-        hand_slot_count = self.max_hand_size * (len(CARD_NAMES) + 1 + 3)
-        pile_count = len(CARD_NAMES) * 2 * 3
-        return scalar_count + status_count + hand_slot_count + pile_count + len(INTENT_NAMES)
+        hand_slot_count = self.max_hand_size * (len(self.card_names) + 1 + 3)
+        pile_count = len(self.card_names) * 2 * 3
+        return scalar_count + status_count + hand_slot_count + pile_count + len(self.intent_names)
 
     def encode(self, battle_state) -> np.ndarray:
         player = battle_state.player
@@ -72,7 +74,7 @@ class StateEncoder:
             features.extend(self._pile_features(pile))
 
         intent = "" if enemy is None else repr(enemy.get_intention(battle_state.game_state, battle_state))
-        features.extend(1.0 if intent == name else 0.0 for name in INTENT_NAMES)
+        features.extend(1.0 if intent == name else 0.0 for name in self.intent_names)
 
         return np.array(features, dtype=np.float32)
 
@@ -82,12 +84,12 @@ class StateEncoder:
         return [agent.status_effect_state.get(status) / 20.0 for status in STATUS_EFFECTS]
 
     def _pile_features(self, cards: list[Card]) -> list[float]:
-        counts = {(name, upgraded): 0 for name in CARD_NAMES for upgraded in (False, True)}
+        counts = {(name, upgraded): 0 for name in self.card_names for upgraded in (False, True)}
         for card in cards:
             key = (card.name, card.upgrade_count > 0)
             if key in counts:
                 counts[key] += 1
-        return [counts[(name, upgraded)] / 10.0 for name in CARD_NAMES for upgraded in (False, True)]
+        return [counts[(name, upgraded)] / 10.0 for name in self.card_names for upgraded in (False, True)]
 
     def _hand_slot_features(self, battle_state) -> list[float]:
         features: list[float] = []
@@ -98,9 +100,9 @@ class StateEncoder:
 
     def _card_slot_features(self, card: Card | None, battle_state) -> list[float]:
         if card is None:
-            return [1.0] + [0.0 for _ in CARD_NAMES] + [0.0, 0.0, 0.0]
+            return [1.0] + [0.0 for _ in self.card_names] + [0.0, 0.0, 0.0]
 
-        card_one_hot = [1.0 if card.name == name else 0.0 for name in CARD_NAMES]
+        card_one_hot = [1.0 if card.name == name else 0.0 for name in self.card_names]
         return (
             [0.0]
             + card_one_hot

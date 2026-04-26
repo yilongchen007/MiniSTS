@@ -30,7 +30,7 @@ class Agent:
     def is_dead(self):
         return self.health <= 0
 
-    def get_damaged(self, amount: int):
+    def get_damaged(self, amount: int) -> int:
         assert amount >= 0, "Damage amount cannot be less than 0"
         blocked = min(self.block, amount)
         amount -= blocked
@@ -38,8 +38,19 @@ class Agent:
         self.health -= amount
         if self.health <= 0:
             self.health = 0
+        return amount
+
+    def lose_health(self, amount: int) -> int:
+        assert amount >= 0, "HP loss amount cannot be less than 0"
+        lost = min(self.health, amount)
+        self.health -= amount
+        if self.health <= 0:
+            self.health = 0
+        return lost
     
     def clear_block(self):
+        if self.status_effect_state.has(StatusEffectRepo.BARRICADE):
+            return
         self.block = 0
 
     def clean_up(self):

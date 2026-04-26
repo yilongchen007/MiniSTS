@@ -9,6 +9,8 @@ import torch
 
 from rl.dqn import DQNAgent, ReplayBuffer, Transition
 from rl.env import MiniSTSEnv
+from rl.encoder import StateEncoder
+from rl.experiment_config import ExperimentConfig, card_names_from_deck
 
 
 def linear_epsilon(episode: int, episodes: int, start: float, end: float, fraction: float) -> float:
@@ -22,7 +24,21 @@ def train(args: argparse.Namespace) -> None:
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    env = MiniSTSEnv(max_steps=args.max_steps, enemy_name=args.enemy)
+    experiment_config = ExperimentConfig.load(args.config)
+    deck = experiment_config.build_deck()
+    encoder_config = experiment_config.section("encoder")
+    card_names = tuple(encoder_config.get("card_names", card_names_from_deck(deck)))
+    encoder = StateEncoder(
+        max_turns=int(encoder_config.get("max_turns", 20)),
+        max_hand_size=int(encoder_config.get("max_hand_size", 10)),
+        card_names=card_names,
+    )
+    env = MiniSTSEnv(
+        encoder=encoder,
+        max_steps=args.max_steps,
+        enemy_name=args.enemy,
+        deck=deck,
+    )
     agent = DQNAgent(
         observation_size=env.observation_size,
         action_size=env.action_size,
@@ -85,23 +101,30 @@ def train(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--episodes", type=int, default=1000)
-    parser.add_argument("--max-steps", type=int, default=200)
-    parser.add_argument("--enemy", choices=["jaw_worm", "big_jaw_worm"], default="big_jaw_worm")
-    parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--replay-size", type=int, default=50000)
-    parser.add_argument("--hidden-size", type=int, default=128)
-    parser.add_argument("--learning-rate", type=float, default=1e-3)
-    parser.add_argument("--gamma", type=float, default=0.99)
-    parser.add_argument("--epsilon-start", type=float, default=1.0)
-    parser.add_argument("--epsilon-end", type=float, default=0.05)
-    parser.add_argument("--epsilon-fraction", type=float, default=0.6)
-    parser.add_argument("--target-sync-steps", type=int, default=200)
-    parser.add_argument("--log-every", type=int, default=50)
-    parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--device", type=str, default=None)
-    parser.add_argument("--save-path", type=str, default="rl_runs/dqn_scenario5_jawworm.pt")
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument("--config", type=str, default=None)
+    pre_args, _ = pre_parser.parse_known_args()
+    experiment_config = ExperimentConfig.load(pre_args.config)
+    training_config = experiment_config.section("training")
+    env_config = experiment_config.section("env")
+
+    parser = argparse.ArgumentParser(parents=[pre_parser])
+    parser.add_argument("--episodes", type=int, default=training_config.get("episodes", 1000))
+    parser.add_argument("--max-steps", type=int, default=env_config.get("max_steps", 200))
+    parser.add_argument("--enemy", choices=["jaw_worm", "big_jaw_worm"], default=env_config.get("enemy", "big_jaw_worm"))
+    parser.add_argument("--batch-size", type=int, default=training_config.get("batch_size", 64))
+    parser.add_argument("--replay-size", type=int, default=training_config.get("replay_size", 50000))
+    parser.add_argument("--hidden-size", type=int, default=training_config.get("hidden_size", 128))
+    parser.add_argument("--learning-rate", type=float, default=training_config.get("learning_rate", 1e-3))
+    parser.add_argument("--gamma", type=float, default=training_config.get("gamma", 0.99))
+    parser.add_argument("--epsilon-start", type=float, default=training_config.get("epsilon_start", 1.0))
+    parser.add_argument("--epsilon-end", type=float, default=training_config.get("epsilon_end", 0.05))
+    parser.add_argument("--epsilon-fraction", type=float, default=training_config.get("epsilon_fraction", 0.6))
+    parser.add_argument("--target-sync-steps", type=int, default=training_config.get("target_sync_steps", 200))
+    parser.add_argument("--log-every", type=int, default=training_config.get("log_every", 50))
+    parser.add_argument("--seed", type=int, default=training_config.get("seed", 0))
+    parser.add_argument("--device", type=str, default=training_config.get("device"))
+    parser.add_argument("--save-path", type=str, default=training_config.get("save_path", "rl_runs/dqn_scenario5_jawworm.pt"))
     args = parser.parse_args()
     train(args)
 
