@@ -109,6 +109,7 @@ CARD_FACTORIES: dict[str, Callable[[], Card]] = {
     _normalize_name("Bomb"): CardGen.Bomb,
     _normalize_name("Suffer"): CardGen.Suffer,
     _normalize_name("Wound"): CardGen.Wound,
+    _normalize_name("Slimed"): CardGen.Slimed,
     _normalize_name("Dazed"): CardGen.Dazed,
     _normalize_name("Burn"): CardGen.Burn,
 }

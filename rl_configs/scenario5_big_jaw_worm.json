@@ -1,6 +1,7 @@
 {
   "env": {
-    "enemy": "big_jaw_worm",
+    "enemy": "TheGuardian",
+    "ascension": 20,
     "max_steps": 200
   },
   "deck": [
@@ -13,7 +14,7 @@
     {"name": "Strike"},
     {"name": "Strike"},
     {"name": "Strike"},
-    {"name": "Battle_Trance"},
+    {"name": "Bludgeon"},
     {"name": "Bloodletting"},
     {"name": "True_Grit", "upgrades": 1},
     {"name": "Pommel Strike", "upgrades": 1}

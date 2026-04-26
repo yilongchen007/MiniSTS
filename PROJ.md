@@ -19,10 +19,15 @@
   - 固定测试卡组：`CardRepo.get_scenario_0()` 到 `get_scenario_5()`。
 - 已新增/整理部分敌人定义，主要在 `agent.py`：
   - 原有小怪：`AcidSlimeSmall`、`SpikeSlimeSmall`、`JawWorm`。
-  - 扩展敌人：`BigJawWorm`、`Goblin`、`HobGoblin`、`Leech`。
+  - 已对照本机 STS jar 修正 `JawWorm` 的部分数值与行动选择逻辑。
+  - 已新增/补齐第一幕 Exordium 敌人切片：
+    `Cultist`、`AcidSlimeSmall/Medium/Large`、`SpikeSlimeSmall/Medium/Large`、`LouseNormal`、`LouseDefensive`、
+    `FungiBeast`、`SlaverBlue`、`SlaverRed`、`Looter`、`GremlinFat`、`GremlinWarrior`、`GremlinThief`、
+    `GremlinTsundere`、`GremlinWizard`、`GremlinNob`、`Lagavulin`、`Sentry`、`SlimeBoss`、`Hexaghost`、`TheGuardian`。
+  - 扩展/实验敌人：`BigJawWorm`、`Goblin`、`HobGoblin`、`Leech`。
 - 已新增状态效果，主要在 `status_effecs.py`：
   - 原有：`VULNERABLE`、`WEAK`、`STRENGTH`。
-  - 扩展：`VIGOR`、`TOLERANCE`、`BOMB`、`NO_DRAW`、`BARRICADE`、`METALLICIZE`、`LOSE_STRENGTH`、`BERSERK`、`DEMON_FORM`、`BRUTALITY`、`RAGE`、`FEEL_NO_PAIN`、`DARK_EMBRACE`、`EVOLVE`、`FIRE_BREATHING`、`JUGGERNAUT`、`FLAME_BARRIER`。
+  - 扩展：`DEXTERITY`、`VIGOR`、`TOLERANCE`、`BOMB`、`NO_DRAW`、`BARRICADE`、`METALLICIZE`、`LOSE_STRENGTH`、`BERSERK`、`DEMON_FORM`、`BRUTALITY`、`RAGE`、`FEEL_NO_PAIN`、`DARK_EMBRACE`、`EVOLVE`、`FIRE_BREATHING`、`JUGGERNAUT`、`FLAME_BARRIER`、`RITUAL`、`FRAIL`、`ENTANGLED`、`CURL_UP`、`ANGER`、`SHARP_HIDE`、`ARTIFACT`。
 - 已补一批 Ironclad/red 机制样例卡：
   - `Battle Trance`、`Flex`、`Inflame`、`Metallicize`、`Barricade`、`Seeing Red`、`True Grit`、`Wild Strike`、`Power Through`。
   - `Rage`、`Feel No Pain`、`Dark Embrace`、`Evolve`、`Fire Breathing`、`Juggernaut`、`Flame Barrier`。
@@ -49,8 +54,8 @@
 
 - `rl/env.py`
   - `MiniSTSEnv`：RL 环境封装。
-  - 当前动作空间：`0` 表示结束回合，`1..10` 表示打出手牌槽位 `0..9`。
-  - 当前敌人参数：`enemy_name` 支持 `jaw_worm` 和 `big_jaw_worm`。
+  - 当前动作空间：`0` 表示结束回合，`1..10` 在普通状态表示打出手牌槽位 `0..9`；进入手牌选择 pending 状态时表示选择手牌槽位 `0..9`。
+  - 当前敌人参数：`enemy_name` 优先使用 `agent.py` 中 `MONSTER_FACTORIES` 的怪物类名，例如 `SlaverBlue`、`GremlinNob`、`SlimeBoss`、`BigJawWorm`；旧的小写别名仍保留兼容，也支持 `exordium:<encounter name>` 格式的第一幕 encounter。
   - 当前支持从 JSON 配置传入固定牌组；未传配置时使用 `rl/experiment_config.py` 中的 `DEFAULT_DECK`。
 - `rl/experiment_config.py`
   - JSON 配置解析与牌组构造。
@@ -64,7 +69,7 @@
   - `RLAction` 与 `RLActionType`：RL 动作结构。
 - `rl/bot.py`
   - `RLBattleBot`：给需要选目标的卡牌提供目标选择桥接，实际决策由 `MiniSTSEnv.step()` 驱动。
-  - 当前只由 env 设置 agent target；card target 仍使用默认索引 0。
+  - 普通 agent target 仍由 env 设置；手牌选择类 card target 已由 env 的 pending hand choice 机制接管。
 - `rl/dqn.py`
   - `DQNAgent`、`QNetwork`、`ReplayBuffer`：基础 DQN 实现。
 - `rl/train_dqn.py`
@@ -116,7 +121,7 @@
 2. 将 `MiniSTSEnv` 继续推广到可配置奖励函数、多敌人、多种子和更完整的战斗设置。
 3. 建立“增删某张牌”的评估协议：固定随机种子或多种子、多局模拟，记录胜率、剩余血量、平均步数和策略差异。
 4. 设计更通用的状态编码，避免 encoder 绑定某个固定卡组。
-5. 扩展 RL 动作空间以支持二级选择。当前 RL 只能选择“结束回合/打出哪张手牌”，像 `True Grit+`、`Armaments`、`Burning Pact`、`Dual Wield`、`Exhume`、`Headbutt`、`Warcry` 这类需要选牌的效果会固定选择可选列表第 0 项，暂时不是策略学习结果。
+5. 继续扩展 RL pending choice。当前已支持对“手牌槽位”的 pending 选择，覆盖 `True Grit+`、`Armaments`、`Burning Pact`、`Dual Wield`、`Warcry`；`Exhume`、`Headbutt` 这类从消耗牌堆/弃牌堆选择的效果仍需后续补充对应 pending 编码。
 6. 未来再考虑前端或 mod 接口，把模型评估结果转化为游戏内选牌建议。
 
 ## 原版机制参考
@@ -136,6 +141,11 @@
 - 当前已提取 Ironclad/red 卡牌摘要：75 张。
 - 摘要包含类名、卡牌 ID、费用、类型、稀有度、目标、基础数值、升级方法、`use()` 依赖的 action/power 类。
 - `local_refs/` 只作为本地实现参考，不提交原始游戏资源或反编译源码。
+- 已新增 `tools/sts_encounter_extract.py`，可从 jar 提取 dungeon encounter/boss 摘要到 `local_refs/sts_encounters_summary.json`：
+
+```bash
+.venv/bin/python tools/sts_encounter_extract.py --dungeons exordium --out local_refs/sts_encounters_summary.json
+```
 
 ## 实机示例
 

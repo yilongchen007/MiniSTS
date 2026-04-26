@@ -26,6 +26,14 @@ def load_agent(path: str, env: MiniSTSEnv, device: str | None = None) -> DQNAgen
 
 def describe_action(env: MiniSTSEnv, action_index: int) -> str:
     assert env.battle_state is not None
+    if env.pending_hand_choice is not None:
+        if action_index == 0:
+            return "Invalid during hand choice"
+        hand_index = action_index - 1
+        if not 0 <= hand_index < len(env.battle_state.hand):
+            return f"Choose missing hand slot {hand_index}"
+        purpose = env.pending_hand_choice.purpose
+        return f"Choose hand {hand_index} for {purpose}: {env.battle_state.hand[hand_index].get_name()}"
     if action_index == 0:
         return "End turn"
     hand_index = action_index - 1
@@ -47,6 +55,11 @@ def print_state(env: MiniSTSEnv) -> None:
             f"Enemy {enemy.name}: hp {enemy.health}/{enemy.max_health} block {enemy.block} "
             f"intent [{enemy.get_intention(battle.game_state, battle)}]"
         )
+    if env.pending_hand_choice is not None:
+        print(
+            f"Pending hand choice: {env.pending_hand_choice.purpose} | "
+            f"slots {list(env.pending_hand_choice.hand_indices)}"
+        )
     print("Hand:", ", ".join(f"{i}:{card.get_name()}" for i, card in enumerate(battle.hand)) or "-empty-")
     print("Draw:", ", ".join(card.get_name() for card in battle.draw_pile) or "-empty-")
     print("Discard:", ", ".join(card.get_name() for card in battle.discard_pile) or "-empty-")
@@ -58,7 +71,7 @@ def q_values(agent: DQNAgent, observation: np.ndarray) -> np.ndarray:
         return agent.online(obs).squeeze(0).cpu().numpy()
 
 
-def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, float, int]:
+def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, float, int, int]:
     observation = env.reset()
     done = False
     total_reward = 0.0
@@ -90,10 +103,13 @@ def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, flo
     if trace:
         print("\n" + "=" * 72)
         print_state(env)
-        print(f"Episode done: result={env.battle_state.get_end_result()} reward={total_reward:.4f} steps={steps}")
+        print(
+            f"Episode done: result={env.battle_state.get_end_result()} "
+            f"reward={total_reward:.4f} steps={steps} hp_loss={env.battle_state.player_hp_lost_this_combat}"
+        )
 
     assert env.battle_state is not None
-    return env.battle_state.get_end_result(), total_reward, steps
+    return env.battle_state.get_end_result(), total_reward, steps, env.battle_state.player_hp_lost_this_combat
 
 
 def main() -> None:
@@ -108,7 +124,8 @@ def main() -> None:
     parser.add_argument("--checkpoint", default=evaluation_config.get("checkpoint", "rl_runs/dqn_scenario5_jawworm.pt"))
     parser.add_argument("--episodes", type=int, default=evaluation_config.get("episodes", 100))
     parser.add_argument("--trace", action="store_true", default=evaluation_config.get("trace", False))
-    parser.add_argument("--enemy", choices=["jaw_worm", "big_jaw_worm"], default=env_config.get("enemy", "big_jaw_worm"))
+    parser.add_argument("--enemy", default=env_config.get("enemy", "BigJawWorm"))
+    parser.add_argument("--ascension", type=int, default=env_config.get("ascension", 0))
     parser.add_argument("--device", default=evaluation_config.get("device"))
     args = parser.parse_args()
 
@@ -126,6 +143,7 @@ def main() -> None:
         enemy_name=args.enemy,
         deck=deck,
         max_steps=int(env_config.get("max_steps", 200)),
+        ascension=args.ascension,
     )
     agent = load_agent(args.checkpoint, env, args.device)
 
@@ -134,19 +152,22 @@ def main() -> None:
     timeouts = 0
     rewards: list[float] = []
     steps: list[int] = []
+    hp_losses: list[int] = []
 
     for episode in range(args.episodes):
-        result, reward, step_count = run_episode(agent, env, trace=args.trace and episode == 0)
+        result, reward, step_count, hp_loss = run_episode(agent, env, trace=args.trace and episode == 0)
         wins += int(result == 1)
         losses += int(result == -1)
         timeouts += int(result == 0)
         rewards.append(reward)
         steps.append(step_count)
+        hp_losses.append(hp_loss)
 
     print(
         f"episodes={args.episodes} win_rate={wins / args.episodes:.3f} "
         f"wins={wins} losses={losses} timeouts={timeouts} "
-        f"avg_reward={np.mean(rewards):.3f} avg_steps={np.mean(steps):.2f}"
+        f"avg_reward={np.mean(rewards):.3f} avg_steps={np.mean(steps):.2f} "
+        f"avg_hp_loss={np.mean(hp_losses):.2f}"
     )
 
 

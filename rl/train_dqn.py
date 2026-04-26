@@ -38,6 +38,7 @@ def train(args: argparse.Namespace) -> None:
         max_steps=args.max_steps,
         enemy_name=args.enemy,
         deck=deck,
+        ascension=args.ascension,
     )
     agent = DQNAgent(
         observation_size=env.observation_size,
@@ -111,7 +112,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(parents=[pre_parser])
     parser.add_argument("--episodes", type=int, default=training_config.get("episodes", 1000))
     parser.add_argument("--max-steps", type=int, default=env_config.get("max_steps", 200))
-    parser.add_argument("--enemy", choices=["jaw_worm", "big_jaw_worm"], default=env_config.get("enemy", "big_jaw_worm"))
+    parser.add_argument("--enemy", default=env_config.get("enemy", "BigJawWorm"))
+    parser.add_argument("--ascension", type=int, default=env_config.get("ascension", 0))
     parser.add_argument("--batch-size", type=int, default=training_config.get("batch_size", 64))
     parser.add_argument("--replay-size", type=int, default=training_config.get("replay_size", 50000))
     parser.add_argument("--hidden-size", type=int, default=training_config.get("hidden_size", 128))

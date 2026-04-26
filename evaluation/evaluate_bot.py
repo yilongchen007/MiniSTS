@@ -13,7 +13,7 @@ sys.path.append(parent_dir)
 from game import GameState
 from battle import BattleState
 from config import Character, Verbose
-from agent import AcidSlimeSmall, SpikeSlimeSmall, JawWorm, Goblin, HobGoblin, Leech, Enemy
+from agent import AcidSlimeSmall, SpikeSlimeSmall, JawWorm, Cultist, Goblin, HobGoblin, Leech, Enemy
 from card import CardGen, Card, CardRepo
 from ggpa.ggpa import GGPA
 from ggpa.random_bot import RandomBot
@@ -86,6 +86,8 @@ def get_enemies(enemies: str, game_state: GameState) -> list[Enemy]:
             ret.append(Leech(game_state))
         elif char == 'j':
             ret.append(JawWorm(game_state))
+        elif char == 'c':
+            ret.append(Cultist(game_state))
         else:
             raise Exception(f"Enemies not recognized for {char} in {enemies}")
     return ret

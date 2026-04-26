@@ -7,6 +7,7 @@ from enum import Enum
 class RLActionType(Enum):
     END_TURN = "end_turn"
     PLAY_CARD = "play_card"
+    CHOOSE_HAND_CARD = "choose_hand_card"
 
 
 @dataclass(frozen=True)
@@ -22,3 +23,7 @@ class RLAction:
     @staticmethod
     def play_card(hand_index: int, target_index: int = 0) -> RLAction:
         return RLAction(RLActionType.PLAY_CARD, hand_index, target_index)
+
+    @staticmethod
+    def choose_hand_card(hand_index: int) -> RLAction:
+        return RLAction(RLActionType.CHOOSE_HAND_CARD, hand_index)

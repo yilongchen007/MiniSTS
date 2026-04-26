@@ -115,6 +115,8 @@ class Card:
     def is_playable(self, game_state: GameState, battle_state: BattleState, ignore_mana: bool = False):
         if not self.playable:
             return False
+        if self.card_type == CardType.ATTACK and game_state.player.status_effect_state.has(StatusEffectRepo.ENTANGLED):
+            return False
         if self.play_condition is not None and not self.play_condition(game_state, battle_state, self):
             return False
         return ignore_mana or self.effective_cost(game_state, battle_state) <= battle_state.mana
@@ -310,6 +312,8 @@ class CardGen:
     # STATUS CARDS
     # 中文：伤口。不可打出状态牌。
     Wound = lambda: Card("Wound", CardType.STATUS, ConstValue(0), Character.IRON_CLAD, Rarity.COMMON, desc="Unplayable.", playable=False)
+    # 中文：粘液。状态牌；可花费 1 点能量打出并消耗。
+    Slimed = lambda: Card("Slimed", CardType.STATUS, ConstValue(1), Character.IRON_CLAD, Rarity.COMMON, desc="Exhaust.", exhaust_on_play=True)
     # 中文：晕眩。不可打出，回合结束虚无。
     Dazed = lambda: Card("Dazed", CardType.STATUS, ConstValue(0), Character.IRON_CLAD, Rarity.COMMON, desc="Unplayable. Ethereal.", playable=False, ethereal=True)
     # 中文：灼伤。不可打出，回合结束造成生命损失。

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MiniSTS Manual Play</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>MiniSTS Manual Play</h1>
+          <p id="scenarioLine">Loading scenario...</p>
+        </div>
+        <div class="top-actions">
+          <button id="resetButton" class="secondary" type="button" title="Reset battle">Reset</button>
+        </div>
+      </header>
+
+      <section class="status-grid" aria-label="Battle status">
+        <article class="panel player-panel">
+          <div class="panel-heading">
+            <span class="label">Player</span>
+            <strong id="playerName">-</strong>
+          </div>
+          <div class="meter-row">
+            <div>
+              <span class="metric-label">HP</span>
+              <span id="playerHp" class="metric-value">-</span>
+            </div>
+            <div>
+              <span class="metric-label">Block</span>
+              <span id="playerBlock" class="metric-value">-</span>
+            </div>
+            <div>
+              <span class="metric-label">Mana</span>
+              <span id="mana" class="metric-value">-</span>
+            </div>
+          </div>
+          <div id="playerStatus" class="status-line"></div>
+        </article>
+
+        <article class="panel run-panel">
+          <div class="panel-heading">
+            <span class="label">Run</span>
+            <strong id="outcome">RUNNING</strong>
+          </div>
+          <div class="meter-row">
+            <div>
+              <span class="metric-label">Turn</span>
+              <span id="turn" class="metric-value">-</span>
+            </div>
+            <div>
+              <span class="metric-label">Step</span>
+              <span id="steps" class="metric-value">-</span>
+            </div>
+            <div>
+              <span class="metric-label">HP Loss</span>
+              <span id="hpLoss" class="metric-value">-</span>
+            </div>
+          </div>
+          <div id="message" class="status-line"></div>
+        </article>
+      </section>
+
+      <section class="enemy-section" aria-label="Enemies">
+        <div class="section-title">Enemies</div>
+        <div id="enemies" class="enemy-grid"></div>
+      </section>
+
+      <section class="hand-section" aria-label="Hand">
+        <div class="section-title">Hand</div>
+        <div id="pendingBanner" class="pending hidden"></div>
+        <div id="hand" class="hand-grid"></div>
+      </section>
+
+      <section class="pile-grid" aria-label="Card piles">
+        <article class="pile-panel">
+          <div class="pile-title">Draw</div>
+          <div id="drawPile" class="pile-list"></div>
+        </article>
+        <article class="pile-panel">
+          <div class="pile-title">Discard</div>
+          <div id="discardPile" class="pile-list"></div>
+        </article>
+        <article class="pile-panel">
+          <div class="pile-title">Exhaust</div>
+          <div id="exhaustPile" class="pile-list"></div>
+        </article>
+      </section>
+
+      <section class="action-bar" aria-label="Actions">
+        <button id="endTurnButton" class="danger" type="button">End Turn</button>
+        <div id="legalActions" class="legal-actions"></div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>

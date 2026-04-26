@@ -15,17 +15,22 @@ from status_effecs import (
     bomb_after,
     brutality_start,
     combust_end,
+    curl_up_attacked,
     demon_form_start,
     dark_embrace_exhaust,
     evolve_draw,
     feel_no_pain_exhaust,
     flame_barrier_attacked,
     fire_breathing_draw,
+    angry_attacked,
     juggernaut_block,
     lose_strength_end,
     metallicize_end,
+    angry_skill_play,
     rage_play,
+    ritual_end,
     rupture_hp_loss,
+    sharp_hide_attacked,
     StatusEffectRepo,
     tolerance_after,
 )
@@ -175,6 +180,10 @@ class BattleState:
         BattleState.card_exhaust_event.broadcast_after((self.player, self.game_state, self, card))
 
     def gain_block(self, agent: Agent, amount: int):
+        amount += agent.status_effect_state.get(StatusEffectRepo.DEXTERITY)
+        if agent.status_effect_state.has(StatusEffectRepo.FRAIL):
+            amount = int(amount * 0.75)
+        amount = max(0, amount)
         before = agent.block
         agent.gain_block(amount)
         gained = agent.block - before
@@ -195,6 +204,9 @@ class BattleState:
             self.player_hp_lost_this_combat += dealt
         if amount > 0:
             BattleState.attacked_event.broadcast_after((target, self.game_state, self, attacker, amount))
+        if target.is_dead() and hasattr(target, "on_death"):
+            target.on_death(self.game_state, self)
+            self.enemies = [enemy for enemy in self.enemies if not enemy.is_dead()]
         return dealt
 
     def discard(self, card: Card):
@@ -370,14 +382,19 @@ BattleState.side_turn_event.subscribe_after(bomb_after)
 BattleState.turn_end_event.subscribe_after(metallicize_end)
 BattleState.turn_end_event.subscribe_after(lose_strength_end)
 BattleState.turn_end_event.subscribe_after(combust_end)
+BattleState.turn_end_event.subscribe_after(ritual_end)
 BattleState.turn_start_event.subscribe_after(berserk_start)
 BattleState.turn_start_event.subscribe_after(demon_form_start)
 BattleState.turn_start_event.subscribe_after(brutality_start)
 BattleState.hp_loss_event.subscribe_after(rupture_hp_loss)
 BattleState.card_play_event.subscribe_after(rage_play)
+BattleState.card_play_event.subscribe_after(angry_skill_play)
 BattleState.card_exhaust_event.subscribe_after(feel_no_pain_exhaust)
 BattleState.card_exhaust_event.subscribe_after(dark_embrace_exhaust)
 BattleState.card_draw_event.subscribe_after(evolve_draw)
 BattleState.card_draw_event.subscribe_after(fire_breathing_draw)
 BattleState.block_gain_event.subscribe_after(juggernaut_block)
 BattleState.attacked_event.subscribe_after(flame_barrier_attacked)
+BattleState.attacked_event.subscribe_after(curl_up_attacked)
+BattleState.attacked_event.subscribe_after(angry_attacked)
+BattleState.attacked_event.subscribe_after(sharp_hide_attacked)

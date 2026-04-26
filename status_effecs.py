@@ -96,6 +96,7 @@ class StatusEffectRepo:
     VULNERABLE = SEDef("Vulnerable", SEDef.add_stack, SEDef.get_decrease(1), SEDef.zero_done, SEDef.key_value_repr)
     WEAK = SEDef("Weak", SEDef.add_stack, SEDef.get_decrease(1), SEDef.zero_done, SEDef.key_value_repr)
     STRENGTH = SEDef("Strength", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
+    DEXTERITY = SEDef("Dexterity", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
     VIGOR = SEDef("Vigor", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
     TOLERANCE = SEDef("Tolerance", SEDef.no_stack, SEDef.get_increase(2), SEDef.zero_done, SEDef.key_value_repr)
     BOMB = SEDef("Bomb", SEDef.unique_stack, SEDef.get_decrease(1), SEDef.zero_done, SEDef.key_value_repr)
@@ -117,6 +118,14 @@ class StatusEffectRepo:
     CORRUPTION = SEDef("Corruption", SEDef.no_stack, SEDef.no_change, SEDef.never_done, SEDef.key_value_repr)
     DOUBLE_TAP = SEDef("Double Tap", SEDef.add_stack, SEDef.remove, SEDef.zero_done, SEDef.key_value_repr)
     RUPTURE = SEDef("Rupture", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
+    RITUAL = SEDef("Ritual", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
+    FRAIL = SEDef("Frail", SEDef.add_stack, SEDef.get_decrease(1), SEDef.zero_done, SEDef.key_value_repr)
+    ENTANGLED = SEDef("Entangled", SEDef.no_stack, SEDef.remove, SEDef.never_done, SEDef.key_value_repr)
+    CURL_UP = SEDef("Curl Up", SEDef.no_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
+    ANGER = SEDef("Anger", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
+    ANGRY = SEDef("Angry", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
+    SHARP_HIDE = SEDef("Sharp Hide", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
+    ARTIFACT = SEDef("Artifact", SEDef.add_stack, SEDef.no_change, SEDef.zero_done, SEDef.key_value_repr)
 
 class StatusEffectObject:
     def __init__(self, definition: StatusEffectDefinition, val: int):
@@ -163,6 +172,22 @@ class StatusEffectState:
         self.clean()
     
     def apply_status(self, definition: StatusEffectDefinition, amount: int):
+        positive_debuffs = {
+            StatusEffectRepo.VULNERABLE.name,
+            StatusEffectRepo.WEAK.name,
+            StatusEffectRepo.FRAIL.name,
+            StatusEffectRepo.ENTANGLED.name,
+        }
+        negative_debuffs = {
+            StatusEffectRepo.STRENGTH.name,
+            StatusEffectRepo.DEXTERITY.name,
+        }
+        is_debuff = (amount > 0 and definition.name in positive_debuffs) or (
+            amount < 0 and definition.name in negative_debuffs
+        )
+        if is_debuff and self.get(StatusEffectRepo.ARTIFACT) > 0:
+            self.apply_status(StatusEffectRepo.ARTIFACT, -1)
+            return
         self.status_effects.append(StatusEffectObject(definition, amount))
         find = self._get_obj(definition)
         keep = definition.stack(find)
@@ -230,6 +255,8 @@ def combust_end(__: None, additional_info: tuple[Agent, GameState, BattleState, 
         battle_state.lose_hp(by, 1, from_card=False)
         for agent in list(other_side):
             agent.get_damaged(amount)
+            if agent.is_dead() and hasattr(agent, "on_death"):
+                agent.on_death(battle_state.game_state, battle_state)
         battle_state.enemies = [enemy for enemy in battle_state.enemies if not enemy.is_dead()]
 
 def rage_play(__: None, additional_info: tuple[Agent, GameState, BattleState, Card]):
@@ -262,13 +289,18 @@ def fire_breathing_draw(__: None, additional_info: tuple[Agent, GameState, Battl
     if amount > 0 and card.card_type in (CardType.STATUS, CardType.CURSE):
         for enemy in list(battle_state.enemies):
             enemy.get_damaged(amount)
+            if enemy.is_dead() and hasattr(enemy, "on_death"):
+                enemy.on_death(battle_state.game_state, battle_state)
         battle_state.enemies = [enemy for enemy in battle_state.enemies if not enemy.is_dead()]
 
 def juggernaut_block(__: None, additional_info: tuple[Agent, GameState, BattleState, int]):
     by, _, battle_state, gained = additional_info
     amount = by.status_effect_state.get(StatusEffectRepo.JUGGERNAUT)
     if amount > 0 and gained > 0 and len(battle_state.enemies) > 0:
-        random.choice(battle_state.enemies).get_damaged(amount)
+        enemy = random.choice(battle_state.enemies)
+        enemy.get_damaged(amount)
+        if enemy.is_dead() and hasattr(enemy, "on_death"):
+            enemy.on_death(battle_state.game_state, battle_state)
         battle_state.enemies = [enemy for enemy in battle_state.enemies if not enemy.is_dead()]
 
 def flame_barrier_attacked(__: None, additional_info: tuple[Agent, GameState, BattleState, Agent, int]):
@@ -277,11 +309,45 @@ def flame_barrier_attacked(__: None, additional_info: tuple[Agent, GameState, Ba
     if amount > 0 and attacker is not by:
         attacker.get_damaged(amount)
 
+def curl_up_attacked(__: None, additional_info: tuple[Agent, GameState, BattleState, Agent, int]):
+    by, _, battle_state, _, _ = additional_info
+    amount = by.status_effect_state.get(StatusEffectRepo.CURL_UP)
+    if amount > 0 and getattr(by, "last_attack_hp_loss", 0) > 0:
+        battle_state.gain_block(by, amount)
+        by.status_effect_state.remove_status(StatusEffectRepo.CURL_UP)
+
+def angry_attacked(__: None, additional_info: tuple[Agent, GameState, BattleState, Agent, int]):
+    by, _, _, _, _ = additional_info
+    amount = by.status_effect_state.get(StatusEffectRepo.ANGRY)
+    if amount > 0 and getattr(by, "last_attack_hp_loss", 0) > 0:
+        by.status_effect_state.apply_status(StatusEffectRepo.STRENGTH, amount)
+
+def sharp_hide_attacked(__: None, additional_info: tuple[Agent, GameState, BattleState, Agent, int]):
+    by, _, _, attacker, _ = additional_info
+    amount = by.status_effect_state.get(StatusEffectRepo.SHARP_HIDE)
+    if amount > 0 and attacker is not by:
+        attacker.get_damaged(amount)
+
 def rupture_hp_loss(__: None, additional_info: tuple[Agent, GameState, BattleState, int, bool]):
     by, _, _, _, from_card = additional_info
     amount = by.status_effect_state.get(StatusEffectRepo.RUPTURE)
     if amount > 0 and from_card:
         by.status_effect_state.apply_status(StatusEffectRepo.STRENGTH, amount)
+
+def ritual_end(__: None, additional_info: tuple[Agent, GameState, BattleState, list[Agent]]):
+    by, _, _, _ = additional_info
+    amount = by.status_effect_state.get(StatusEffectRepo.RITUAL)
+    if amount > 0:
+        by.status_effect_state.apply_status(StatusEffectRepo.STRENGTH, amount)
+
+def angry_skill_play(__: None, additional_info: tuple[Agent, GameState, BattleState, Card]):
+    _, _, battle_state, card = additional_info
+    if card.card_type != CardType.SKILL:
+        return
+    for enemy in battle_state.enemies:
+        amount = enemy.status_effect_state.get(StatusEffectRepo.ANGER)
+        if amount > 0:
+            enemy.status_effect_state.apply_status(StatusEffectRepo.STRENGTH, amount)
 
 def strength_apply(amount: int, additional_info: tuple[Agent, GameState, BattleState, Agent]):
     by, _, _, _ = additional_info
