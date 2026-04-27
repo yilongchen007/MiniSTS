@@ -1,6 +1,6 @@
 {
   "env": {
-    "enemy": "TheGuardian",
+    "enemy": "Lagavulin",
     "ascension": 20,
     "max_steps": 200
   },
@@ -14,7 +14,6 @@
     {"name": "Strike"},
     {"name": "Strike"},
     {"name": "Strike"},
-    {"name": "Bludgeon"},
     {"name": "Bloodletting"},
     {"name": "True_Grit", "upgrades": 1},
     {"name": "Pommel Strike", "upgrades": 1}
@@ -24,7 +23,11 @@
     "max_hand_size": 10
   },
   "reward": {
-    "damage_reward_scale": 1.0
+    "damage_reward_scale": 1.0,
+    "hp_loss_penalty_scale": 1.0,
+    "win_reward": 1.0,
+    "loss_penalty": 1.0,
+    "timeout_penalty": 0.5
   },
   "training": {
     "episodes": 1500,
@@ -41,6 +44,54 @@
     "seed": 0,
     "double_dqn": false,
     "save_path": "rl_runs/dqn_scenario5_guardian.pt"
+  },
+  "ppo": {
+    "episodes": 1500,
+    "rollout_steps": 2048,
+    "batch_size": 256,
+    "epochs": 4,
+    "hidden_size": 256,
+    "learning_rate": 0.0003,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_ratio": 0.2,
+    "value_coef": 0.5,
+    "entropy_coef": 0.01,
+    "log_every": 100,
+    "seed": 0,
+    "save_path": "rl_runs/ppo_scenario5_guardian.pt"
+  },
+  "mcts": {
+    "episodes": 20,
+    "simulations": 80,
+    "rollout_depth": 60,
+    "exploration": 1.4,
+    "gamma": 0.99,
+    "eval_weight": 1.0,
+    "rollout_policy": "heuristic",
+    "seed": 0,
+    "trace": false
+  },
+  "az": {
+    "episodes": 200,
+    "simulations": 80,
+    "eval_simulations": 80,
+    "c_puct": 1.5,
+    "temperature": 1.0,
+    "gamma": 0.99,
+    "network_value_weight": 0,
+    "hidden_size": 256,
+    "learning_rate": 0.0003,
+    "batch_size": 256,
+    "epochs": 4,
+    "train_samples": 2048,
+    "replay_size": 50000,
+    "value_coef": 1.0,
+    "entropy_coef": 0.001,
+    "log_every": 10,
+    "seed": 0,
+    "eval_mode": "puct",
+    "save_path": "rl_runs/az_scenario5_guardian.pt"
   },
   "evaluation": {
     "checkpoint": "rl_runs/dqn_scenario5_guardian.pt",

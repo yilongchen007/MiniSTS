@@ -59,6 +59,10 @@ class MiniSTSEnv:
         deck: list[Card] | None = None,
         ascension: int = 0,
         damage_reward_scale: float = 1.0,
+        hp_loss_penalty_scale: float = 1.0,
+        win_reward: float = 1.0,
+        loss_penalty: float = 1.0,
+        timeout_penalty: float = 0.5,
     ):
         self.encoder = encoder or StateEncoder()
         self.max_steps = max_steps
@@ -66,6 +70,10 @@ class MiniSTSEnv:
         self.deck = deck
         self.ascension = ascension
         self.damage_reward_scale = damage_reward_scale
+        self.hp_loss_penalty_scale = hp_loss_penalty_scale
+        self.win_reward = win_reward
+        self.loss_penalty = loss_penalty
+        self.timeout_penalty = timeout_penalty
         self.bot = RLBattleBot()
         self.game_state: GameState | None = None
         self.battle_state: BattleState | None = None
@@ -73,6 +81,7 @@ class MiniSTSEnv:
         self.steps = 0
         self.previous_player_health = 0
         self.previous_enemy_health = 0
+        self.initial_enemy_max_health = 1
 
     @property
     def observation_size(self) -> int:
@@ -94,6 +103,7 @@ class MiniSTSEnv:
         self.battle_state.turn = 1
         self.battle_state.turn_phase = 0
         self.battle_state.draw_hand()
+        self.initial_enemy_max_health = self._enemy_max_health_total()
         self.previous_player_health = self.battle_state.player.health
         self.previous_enemy_health = self._enemy_health_total()
         return self.observe()
@@ -184,6 +194,7 @@ class MiniSTSEnv:
         if self.pending_hand_choice is None and action.action_type == RLActionType.CHOOSE_HAND_CARD:
             return StepResult(self.observe(), -1.0, True, {"invalid_action": action_index})
 
+        previous_player_health = self.battle_state.player.health
         previous_enemy_health = self._enemy_health_total()
         if self.pending_hand_choice is not None:
             assert action.hand_index is not None
@@ -199,7 +210,7 @@ class MiniSTSEnv:
 
         self.steps += 1
         done = self.battle_state.ended() or self.steps >= self.max_steps
-        reward = self._reward(previous_enemy_health)
+        reward = self._reward(previous_player_health, previous_enemy_health, done)
         self.previous_player_health = self.battle_state.player.health
         self.previous_enemy_health = self._enemy_health_total()
         return StepResult(self.observe(), reward, done, {"result": self.battle_state.get_end_result()})
@@ -353,6 +364,20 @@ class MiniSTSEnv:
         assert self.battle_state is not None
         return max(1, sum(enemy.max_health for enemy in self.battle_state.enemies))
 
-    def _reward(self, previous_enemy_health: int) -> float:
+    def _reward(self, previous_player_health: int, previous_enemy_health: int, done: bool) -> float:
+        assert self.battle_state is not None
+        player = self.battle_state.player
         damage_dealt = max(0, previous_enemy_health - self._enemy_health_total())
-        return self.damage_reward_scale * damage_dealt / self._enemy_max_health_total()
+        health_lost = max(0, previous_player_health - player.health)
+        reward = (
+            self.damage_reward_scale * damage_dealt / self.initial_enemy_max_health
+            - self.hp_loss_penalty_scale * health_lost / player.max_health
+        )
+        if not done:
+            return reward
+        result = self.battle_state.get_end_result()
+        if result == 1:
+            return reward + self.win_reward
+        if result == -1:
+            return reward - self.loss_penalty
+        return reward - self.timeout_penalty

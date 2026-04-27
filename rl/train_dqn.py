@@ -40,6 +40,10 @@ def train(args: argparse.Namespace) -> None:
         deck=deck,
         ascension=args.ascension,
         damage_reward_scale=args.damage_reward_scale,
+        hp_loss_penalty_scale=args.hp_loss_penalty_scale,
+        win_reward=args.win_reward,
+        loss_penalty=args.loss_penalty,
+        timeout_penalty=args.timeout_penalty,
     )
     agent = DQNAgent(
         observation_size=env.observation_size,
@@ -118,6 +122,10 @@ def main() -> None:
     parser.add_argument("--enemy", default=env_config.get("enemy", "BigJawWorm"))
     parser.add_argument("--ascension", type=int, default=env_config.get("ascension", 0))
     parser.add_argument("--damage-reward-scale", type=float, default=reward_config.get("damage_reward_scale", 1.0))
+    parser.add_argument("--hp-loss-penalty-scale", type=float, default=reward_config.get("hp_loss_penalty_scale", 1.0))
+    parser.add_argument("--win-reward", type=float, default=reward_config.get("win_reward", 1.0))
+    parser.add_argument("--loss-penalty", type=float, default=reward_config.get("loss_penalty", 1.0))
+    parser.add_argument("--timeout-penalty", type=float, default=reward_config.get("timeout_penalty", 0.5))
     parser.add_argument("--batch-size", type=int, default=training_config.get("batch_size", 64))
     parser.add_argument("--replay-size", type=int, default=training_config.get("replay_size", 50000))
     parser.add_argument("--hidden-size", type=int, default=training_config.get("hidden_size", 128))

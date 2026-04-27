@@ -5,74 +5,31 @@ import argparse
 import numpy as np
 import torch
 
-from rl.dqn import DQNAgent
 from rl.encoder import StateEncoder
 from rl.env import MiniSTSEnv
 from rl.experiment_config import ExperimentConfig, card_names_from_deck
+from rl.ppo import PPOAgent
+from rl.evaluate_dqn import describe_action, print_state
 
 
-def load_agent(path: str, env: MiniSTSEnv, device: str | None = None) -> DQNAgent:
+def load_agent(path: str, env: MiniSTSEnv, device: str | None = None) -> PPOAgent:
     checkpoint = torch.load(path, map_location=device or "cpu")
-    agent = DQNAgent(
+    agent = PPOAgent(
         observation_size=env.observation_size,
         action_size=env.action_size,
-        hidden_size=int(checkpoint.get("hidden_size", 128)),
-        double_dqn=bool(checkpoint.get("double_dqn", False)),
+        hidden_size=int(checkpoint.get("hidden_size", 256)),
+        gamma=float(checkpoint.get("gamma", 0.99)),
+        gae_lambda=float(checkpoint.get("gae_lambda", 0.95)),
+        clip_ratio=float(checkpoint.get("clip_ratio", 0.2)),
+        value_coef=float(checkpoint.get("value_coef", 0.5)),
+        entropy_coef=float(checkpoint.get("entropy_coef", 0.01)),
         device=device,
     )
-    agent.online.load_state_dict(checkpoint["online"])
-    agent.target.load_state_dict(checkpoint["target"])
+    agent.model.load_state_dict(checkpoint["model"])
     return agent
 
 
-def describe_action(env: MiniSTSEnv, action_index: int) -> str:
-    assert env.battle_state is not None
-    if env.pending_hand_choice is not None:
-        if action_index == 0:
-            return "Invalid during hand choice"
-        hand_index = action_index - 1
-        if not 0 <= hand_index < len(env.battle_state.hand):
-            return f"Choose missing hand slot {hand_index}"
-        purpose = env.pending_hand_choice.purpose
-        return f"Choose hand {hand_index} for {purpose}: {env.battle_state.hand[hand_index].get_name()}"
-    if action_index == 0:
-        return "End turn"
-    hand_index = action_index - 1
-    if not 0 <= hand_index < len(env.battle_state.hand):
-        return f"Play missing hand slot {hand_index}"
-    return f"Play hand {hand_index}: {env.battle_state.hand[hand_index].get_name()}"
-
-
-def print_state(env: MiniSTSEnv) -> None:
-    assert env.battle_state is not None
-    battle = env.battle_state
-    enemy = battle.enemies[0] if battle.enemies else None
-    print(
-        f"Turn {battle.turn} | mana {battle.mana}/{battle.game_state.max_mana} | "
-        f"player hp {battle.player.health}/{battle.player.max_health} block {battle.player.block}"
-    )
-    if enemy is not None:
-        print(
-            f"Enemy {enemy.name}: hp {enemy.health}/{enemy.max_health} block {enemy.block} "
-            f"intent [{enemy.get_intention(battle.game_state, battle)}]"
-        )
-    if env.pending_hand_choice is not None:
-        print(
-            f"Pending hand choice: {env.pending_hand_choice.purpose} | "
-            f"slots {list(env.pending_hand_choice.hand_indices)}"
-        )
-    print("Hand:", ", ".join(f"{i}:{card.get_name()}" for i, card in enumerate(battle.hand)) or "-empty-")
-    print("Draw:", ", ".join(card.get_name() for card in battle.draw_pile) or "-empty-")
-    print("Discard:", ", ".join(card.get_name() for card in battle.discard_pile) or "-empty-")
-
-
-def q_values(agent: DQNAgent, observation: np.ndarray) -> np.ndarray:
-    with torch.no_grad():
-        obs = torch.as_tensor(observation, dtype=torch.float32, device=agent.device).unsqueeze(0)
-        return agent.online(obs).squeeze(0).cpu().numpy()
-
-
-def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, float, int, int]:
+def run_episode(agent: PPOAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, float, int, int]:
     observation = env.reset()
     done = False
     total_reward = 0.0
@@ -80,16 +37,14 @@ def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, flo
 
     while not done:
         mask = env.legal_action_mask()
-        qs = q_values(agent, observation)
-        masked_qs = np.where(mask, qs, -np.inf)
-        action = int(np.argmax(masked_qs))
+        action = agent.greedy_action(observation, mask)
 
         if trace:
             print("\n" + "=" * 72)
             print_state(env)
-            print("Legal action Q-values:")
+            print("Legal actions:")
             for index in np.flatnonzero(mask):
-                print(f"  {index:2d}: {qs[index]: .4f} | {describe_action(env, int(index))}")
+                print(f"  {index:2d}: {describe_action(env, int(index))}")
             print(f"Chosen: {action} | {describe_action(env, action)}")
 
         result = env.step_index(action)
@@ -101,6 +56,7 @@ def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, flo
         if trace:
             print(f"Step reward: {result.reward:.4f}")
 
+    assert env.battle_state is not None
     if trace:
         print("\n" + "=" * 72)
         print_state(env)
@@ -108,8 +64,6 @@ def run_episode(agent: DQNAgent, env: MiniSTSEnv, trace: bool) -> tuple[int, flo
             f"Episode done: result={env.battle_state.get_end_result()} "
             f"reward={total_reward:.4f} steps={steps} hp_loss={env.battle_state.player_hp_lost_this_combat}"
         )
-
-    assert env.battle_state is not None
     return env.battle_state.get_end_result(), total_reward, steps, env.battle_state.player_hp_lost_this_combat
 
 
@@ -118,12 +72,13 @@ def main() -> None:
     pre_parser.add_argument("--config", type=str, default=None)
     pre_args, _ = pre_parser.parse_known_args()
     experiment_config = ExperimentConfig.load(pre_args.config)
-    evaluation_config = experiment_config.section("evaluation")
     env_config = experiment_config.section("env")
     reward_config = experiment_config.section("reward")
+    ppo_config = experiment_config.section("ppo")
+    evaluation_config = experiment_config.section("evaluation")
 
     parser = argparse.ArgumentParser(parents=[pre_parser])
-    parser.add_argument("--checkpoint", default=evaluation_config.get("checkpoint", "rl_runs/dqn_scenario5_jawworm.pt"))
+    parser.add_argument("--checkpoint", default=ppo_config.get("save_path", "rl_runs/ppo_scenario5_guardian.pt"))
     parser.add_argument("--episodes", type=int, default=evaluation_config.get("episodes", 100))
     parser.add_argument("--trace", action="store_true", default=evaluation_config.get("trace", False))
     parser.add_argument("--enemy", default=env_config.get("enemy", "BigJawWorm"))
@@ -133,10 +88,9 @@ def main() -> None:
     parser.add_argument("--win-reward", type=float, default=reward_config.get("win_reward", 1.0))
     parser.add_argument("--loss-penalty", type=float, default=reward_config.get("loss_penalty", 1.0))
     parser.add_argument("--timeout-penalty", type=float, default=reward_config.get("timeout_penalty", 0.5))
-    parser.add_argument("--device", default=evaluation_config.get("device"))
+    parser.add_argument("--device", default=ppo_config.get("device"))
     args = parser.parse_args()
 
-    experiment_config = ExperimentConfig.load(args.config)
     deck = experiment_config.build_deck()
     encoder_config = experiment_config.section("encoder")
     card_names = tuple(encoder_config.get("card_names", card_names_from_deck(deck)))
