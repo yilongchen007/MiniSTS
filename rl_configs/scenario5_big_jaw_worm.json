@@ -79,7 +79,7 @@
     "c_puct": 1.5,
     "temperature": 1.0,
     "gamma": 0.99,
-    "network_value_weight": 0,
+    "network_value_weight": 1,
     "hidden_size": 256,
     "learning_rate": 0.0003,
     "batch_size": 256,
