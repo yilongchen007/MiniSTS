@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 
 import numpy as np
 
@@ -17,84 +18,7 @@ CARD_NAMES = (
     "Pommel Strike",
 )
 
-INTENT_NAMES = (
-    "NoAction()",
-    "Sleep",
-    "Stunned",
-    "Escape",
-    "Split",
-    "Add 3 status card(s) to discard",
-    "Add 5 status card(s) to discard",
-    "Add 1 status card(s) to discard",
-    "Add 2 status card(s) to discard",
-    "Apply 1 Weak to player",
-    "Apply 3 Ritual to self",
-    "Apply 4 Ritual to self",
-    "Apply 5 Ritual to self",
-    "Apply 3 Strength to self",
-    "Apply 4 Strength to self",
-    "Apply 2 Anger to self",
-    "Apply 3 Anger to self",
-    "Apply 2 Weak to player and Apply 2 Vulnerable to player",
-    "Deal 11 attack damage to player",
-    "Deal 12 attack damage to player",
-    "Deal 13 attack damage to player",
-    "Deal 14 attack damage to player",
-    "Deal 16 attack damage to player",
-    "Deal 18 attack damage to player",
-    "Deal 20 attack damage to player",
-    "Deal 22 attack damage to player",
-    "Deal 24 attack damage to player",
-    "Deal 25 attack damage to player",
-    "Deal 30 attack damage to player",
-    "Deal 32 attack damage to player",
-    "Deal 35 attack damage to player",
-    "Deal 36 attack damage to player",
-    "Deal 38 attack damage to player",
-    "Deal 3 attack damage to player",
-    "Deal 4 attack damage to player",
-    "Deal 5 attack damage to player",
-    "Deal 6 attack damage to player",
-    "Deal 7 attack damage to player",
-    "Deal 8 attack damage to player",
-    "Deal 9 attack damage to player",
-    "Deal 10 attack damage to player",
-    "Deal 2 attack damage 6 times to player",
-    "Deal 3 attack damage 6 times to player",
-    "Deal 5 attack damage 2 times to player",
-    "Deal 6 attack damage 2 times to player",
-    "Deal 5 attack damage 4 times to player",
-    "Deal 8 attack damage 2 times to player",
-    "Deal 9 attack damage 4 times to player",
-    "Deal 10 attack damage 2 times to player",
-    "Deal 7 attack damage to player and Add 5 block to self",
-    "Deal 14 attack damage to player and Add 10 block to self",
-    "Deal 4 attack damage to player and Apply 1 Weak to player and Apply 1 Frail to player",
-    "Deal 7 attack damage to player and Apply 1 Weak to player",
-    "Deal 8 attack damage to player and Apply 1 Weak to player",
-    "Deal 8 attack damage to player and Apply 1 Vulnerable to player",
-    "Deal 9 attack damage to player and Apply 1 Vulnerable to player",
-    "Deal 6 attack damage to player and Apply 2 Vulnerable to player",
-    "Deal 8 attack damage to player and Apply 2 Vulnerable to player",
-    "Deal 10 attack damage to player and Add 1 status card(s) to discard",
-    "Deal 11 attack damage to player and Add 1 status card(s) to discard",
-    "Deal 11 attack damage to player and Add 2 status card(s) to discard",
-    "Deal 12 attack damage to player and Add 2 status card(s) to discard",
-    "Deal 16 attack damage to player and Add 2 status card(s) to discard",
-    "Deal 18 attack damage to player and Add 2 status card(s) to discard",
-    "Apply 3 Strength and Add 6 block to self",
-    "Apply 4 Strength and Add 6 block to self",
-    "Apply 5 Strength and Add 9 block to self",
-    "Apply 6 Strength and Add 10 block to self",
-    "Apply 8 Strength and Add 10 block to self",
-    "Apply 10 Strength and Add 10 block to self",
-    "Apply -1 Strength to player and Apply -1 Dexterity to player",
-    "Apply -2 Strength to player and Apply -2 Dexterity to player",
-    "Add 7 block to all enemies",
-    "Add 9 block to self",
-    "Add 11 block to all enemies",
-    "Apply 3 Sharp Hide to self and Add 20 block to self",
-)
+INTENT_NAMES: tuple[str, ...] = ()
 
 STATUS_EFFECTS = (
     StatusEffectRepo.VULNERABLE,
@@ -120,6 +44,22 @@ HAND_CHOICE_PURPOSES = (
     "duplicate_hand_card",
 )
 
+INTENT_FEATURE_NAMES = (
+    "intent_attack_total",
+    "intent_attack_times",
+    "intent_block",
+    "intent_weak",
+    "intent_vulnerable",
+    "intent_frail",
+    "intent_strength",
+    "intent_status_cards",
+    "intent_is_split",
+    "intent_is_sleep",
+    "intent_is_stun",
+    "intent_is_escape",
+    "intent_is_defensive_mode",
+)
+
 
 @dataclass(frozen=True)
 class StateEncoder:
@@ -137,7 +77,14 @@ class StateEncoder:
         hand_slot_count = self.max_hand_size * (len(self.card_names) + 1 + 3)
         pile_count = len(self.card_names) * 2 * 3
         pending_hand_choice_count = 2 + len(HAND_CHOICE_PURPOSES) + self.max_hand_size
-        return scalar_count + status_count + hand_slot_count + pile_count + len(self.intent_names) + pending_hand_choice_count
+        return (
+            scalar_count
+            + status_count
+            + hand_slot_count
+            + pile_count
+            + len(INTENT_FEATURE_NAMES)
+            + pending_hand_choice_count
+        )
 
     def encode(self, battle_state, pending_hand_choice=None) -> np.ndarray:
         player = battle_state.player
@@ -163,7 +110,7 @@ class StateEncoder:
             features.extend(self._pile_features(pile))
 
         intent = "" if enemy is None else repr(enemy.get_intention(battle_state.game_state, battle_state))
-        features.extend(1.0 if intent == name else 0.0 for name in self.intent_names)
+        features.extend(self._intent_numeric_features(intent))
 
         features.extend(self._pending_hand_choice_features(pending_hand_choice))
 
@@ -215,3 +162,36 @@ class StateEncoder:
             + [1.0 if purpose == name else 0.0 for name in HAND_CHOICE_PURPOSES]
             + [1.0 if index in hand_indices else 0.0 for index in range(self.max_hand_size)]
         )
+
+    def _intent_numeric_features(self, intent: str) -> list[float]:
+        attack_total = 0
+        attack_times = 0
+        for damage, times in re.findall(r"Deal (\d+) attack damage(?: (\d+) times)?", intent):
+            hit_count = int(times) if times else 1
+            attack_total += int(damage) * hit_count
+            attack_times += hit_count
+
+        block_total = sum(int(amount) for amount in re.findall(r"Add (\d+) block", intent))
+        status_cards = sum(int(amount) for amount in re.findall(r"Add (\d+) status card", intent))
+
+        def status_amount(status_name: str) -> int:
+            return sum(
+                int(amount)
+                for amount in re.findall(rf"Apply (-?\d+) {re.escape(status_name)}", intent)
+            )
+
+        return [
+            attack_total / 100.0,
+            attack_times / 10.0,
+            block_total / 100.0,
+            status_amount("Weak") / 10.0,
+            status_amount("Vulnerable") / 10.0,
+            status_amount("Frail") / 10.0,
+            status_amount("Strength") / 10.0,
+            status_cards / 10.0,
+            1.0 if "Split" in intent else 0.0,
+            1.0 if "Sleep" in intent else 0.0,
+            1.0 if "Stun" in intent or "Stunned" in intent else 0.0,
+            1.0 if "Escape" in intent else 0.0,
+            1.0 if "Defensive Mode" in intent else 0.0,
+        ]

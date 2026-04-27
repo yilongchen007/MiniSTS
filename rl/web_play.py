@@ -58,26 +58,39 @@ def build_env(config_path: str, enemy: str | None, ascension: int | None, max_st
 
 
 class ManualPlaySession:
-    def __init__(self, config_path: str, enemy: str | None, ascension: int | None, max_steps: int | None, seed: int):
+    def __init__(
+        self,
+        config_path: str,
+        enemy: str | None,
+        ascension: int | None,
+        max_steps: int | None,
+        seed: int,
+        record_path: str | None = None,
+    ):
         self.config_path = config_path
         self.enemy = enemy
         self.ascension = ascension
         self.max_steps = max_steps
         self.seed = seed
+        self.record_path = record_path
+        self.actions: list[int] = []
         self.env = build_env(config_path, enemy, ascension, max_steps)
         self.reset()
 
     def reset(self) -> dict[str, Any]:
         random.seed(self.seed)
+        self.actions = []
         self.env = build_env(self.config_path, self.enemy, self.ascension, self.max_steps)
         self.env.reset()
         return self.state()
 
     def act(self, action_index: int) -> dict[str, Any]:
         result = self.env.step_index(action_index)
+        self.actions.append(action_index)
         state = self.state()
         state["last_reward"] = result.reward
         state["last_info"] = result.info
+        self.save_record()
         return state
 
     def state(self) -> dict[str, Any]:
@@ -121,7 +134,28 @@ class ManualPlaySession:
                 }
                 for index in legal_indices
             ],
+            "actions": list(self.actions),
         }
+
+    def save_record(self) -> None:
+        if self.record_path is None:
+            return
+        assert self.env.battle_state is not None
+        result = self.env.battle_state.get_end_result()
+        payload = {
+            "config": self.config_path,
+            "enemy": self.env.enemy_name,
+            "ascension": self.env.ascension,
+            "seed": self.seed,
+            "result": result,
+            "outcome": "WIN" if result == 1 else "LOSE" if result == -1 else "RUNNING",
+            "steps": self.env.steps,
+            "hp_loss": self.env.battle_state.player_hp_lost_this_combat,
+            "actions": list(self.actions),
+        }
+        path = Path(self.record_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2))
 
     def _agent(self, agent: Any, index: int) -> dict[str, Any]:
         assert self.env.game_state is not None and self.env.battle_state is not None
@@ -217,12 +251,13 @@ def main() -> None:
     parser.add_argument("--ascension", type=int, default=None)
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--record-path", default=None)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
 
     handler = RequestHandler
-    handler.session = ManualPlaySession(args.config, args.enemy, args.ascension, args.max_steps, args.seed)
+    handler.session = ManualPlaySession(args.config, args.enemy, args.ascension, args.max_steps, args.seed, args.record_path)
     server = ThreadingHTTPServer((args.host, args.port), handler)
     print(f"MiniSTS manual play UI running at http://{args.host}:{server.server_port}")
     print("Press Ctrl+C to stop.")

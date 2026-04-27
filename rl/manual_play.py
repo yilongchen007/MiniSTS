@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import random
+from pathlib import Path
 
 from rl.env import MiniSTSEnv
 from rl.encoder import StateEncoder
@@ -131,6 +133,7 @@ def main() -> None:
         default=None,
         help="Optional comma-separated action indices for non-interactive smoke runs.",
     )
+    parser.add_argument("--record-path", default=None, help="Optional JSON path to save the played action indices.")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -139,6 +142,7 @@ def main() -> None:
     scripted_actions = parse_actions(args.actions)
     scripted_mode = args.actions is not None
     action_cursor = 0
+    recorded_actions: list[int] = []
 
     while env.battle_state is not None and not env.battle_state.ended() and env.steps < env.max_steps:
         print_state(env)
@@ -156,6 +160,7 @@ def main() -> None:
                 print("manual play stopped")
                 return
         result = env.step_index(action_index)
+        recorded_actions.append(action_index)
         print(f"reward {result.reward:.4f}")
         if result.done:
             break
@@ -168,6 +173,22 @@ def main() -> None:
         f"{outcome} | steps={env.steps} | "
         f"hp_loss={env.battle_state.player_hp_lost_this_combat}"
     )
+    if args.record_path:
+        payload = {
+            "config": args.config,
+            "enemy": args.enemy,
+            "ascension": args.ascension,
+            "seed": args.seed,
+            "result": result,
+            "outcome": outcome,
+            "steps": env.steps,
+            "hp_loss": env.battle_state.player_hp_lost_this_combat,
+            "actions": recorded_actions,
+        }
+        path = Path(args.record_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, indent=2))
+        print(f"recorded actions to {path}")
 
 
 if __name__ == "__main__":

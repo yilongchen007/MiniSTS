@@ -56,12 +56,14 @@ class DQNAgent:
         learning_rate: float = 1e-3,
         gamma: float = 0.99,
         hidden_size: int = 128,
+        double_dqn: bool = False,
         device: str | None = None,
     ):
         self.observation_size = observation_size
         self.action_size = action_size
         self.gamma = gamma
         self.hidden_size = hidden_size
+        self.double_dqn = double_dqn
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.online = QNetwork(observation_size, action_size, hidden_size).to(self.device)
         self.target = QNetwork(observation_size, action_size, hidden_size).to(self.device)
@@ -95,9 +97,13 @@ class DQNAgent:
 
         q_values = self.online(states).gather(1, actions).squeeze(1)
         with torch.no_grad():
-            next_q_values = self.target(next_states)
-            next_q_values = next_q_values.masked_fill(~next_masks, -1e9)
-            next_best = next_q_values.max(dim=1).values
+            next_target_q_values = self.target(next_states).masked_fill(~next_masks, -1e9)
+            if self.double_dqn:
+                next_online_q_values = self.online(next_states).masked_fill(~next_masks, -1e9)
+                next_actions = next_online_q_values.argmax(dim=1, keepdim=True)
+                next_best = next_target_q_values.gather(1, next_actions).squeeze(1)
+            else:
+                next_best = next_target_q_values.max(dim=1).values
             target = rewards + (1.0 - dones) * self.gamma * next_best
 
         loss = self.loss_fn(q_values, target)
@@ -119,6 +125,7 @@ class DQNAgent:
                 "action_size": self.action_size,
                 "gamma": self.gamma,
                 "hidden_size": self.hidden_size,
+                "double_dqn": self.double_dqn,
             },
             path,
         )

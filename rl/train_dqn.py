@@ -39,6 +39,7 @@ def train(args: argparse.Namespace) -> None:
         enemy_name=args.enemy,
         deck=deck,
         ascension=args.ascension,
+        damage_reward_scale=args.damage_reward_scale,
     )
     agent = DQNAgent(
         observation_size=env.observation_size,
@@ -46,6 +47,7 @@ def train(args: argparse.Namespace) -> None:
         learning_rate=args.learning_rate,
         gamma=args.gamma,
         hidden_size=args.hidden_size,
+        double_dqn=args.double_dqn,
         device=args.device,
     )
     replay = ReplayBuffer(args.replay_size)
@@ -108,12 +110,14 @@ def main() -> None:
     experiment_config = ExperimentConfig.load(pre_args.config)
     training_config = experiment_config.section("training")
     env_config = experiment_config.section("env")
+    reward_config = experiment_config.section("reward")
 
     parser = argparse.ArgumentParser(parents=[pre_parser])
     parser.add_argument("--episodes", type=int, default=training_config.get("episodes", 1000))
     parser.add_argument("--max-steps", type=int, default=env_config.get("max_steps", 200))
     parser.add_argument("--enemy", default=env_config.get("enemy", "BigJawWorm"))
     parser.add_argument("--ascension", type=int, default=env_config.get("ascension", 0))
+    parser.add_argument("--damage-reward-scale", type=float, default=reward_config.get("damage_reward_scale", 1.0))
     parser.add_argument("--batch-size", type=int, default=training_config.get("batch_size", 64))
     parser.add_argument("--replay-size", type=int, default=training_config.get("replay_size", 50000))
     parser.add_argument("--hidden-size", type=int, default=training_config.get("hidden_size", 128))
@@ -125,6 +129,7 @@ def main() -> None:
     parser.add_argument("--target-sync-steps", type=int, default=training_config.get("target_sync_steps", 200))
     parser.add_argument("--log-every", type=int, default=training_config.get("log_every", 50))
     parser.add_argument("--seed", type=int, default=training_config.get("seed", 0))
+    parser.add_argument("--double-dqn", action=argparse.BooleanOptionalAction, default=training_config.get("double_dqn", False))
     parser.add_argument("--device", type=str, default=training_config.get("device"))
     parser.add_argument("--save-path", type=str, default=training_config.get("save_path", "rl_runs/dqn_scenario5_jawworm.pt"))
     args = parser.parse_args()

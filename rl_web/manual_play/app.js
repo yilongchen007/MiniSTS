@@ -23,6 +23,7 @@ const els = {
   exhaustPile: document.querySelector("#exhaustPile"),
   endTurnButton: document.querySelector("#endTurnButton"),
   legalActions: document.querySelector("#legalActions"),
+  actionHistory: document.querySelector("#actionHistory"),
 };
 
 function text(value) {
@@ -90,6 +91,7 @@ function render() {
   renderHand(data.hand);
   renderPiles(data);
   renderActions(data.legal_actions);
+  els.actionHistory.textContent = data.actions?.length ? `actions: ${data.actions.join(",")}` : "actions: -";
 }
 
 function renderEnemies(enemies) {

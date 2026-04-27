@@ -248,7 +248,7 @@ class RemoveStatusAction(Action):
         by.status_effect_state.remove_status(self.status)
 
     def __repr__(self) -> str:
-        return f"Remove {self.status} from self"
+        return ""
 
 class StunAction(Action):
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState) -> None:
@@ -321,7 +321,7 @@ class SetForcedMoveAction(Action):
         by.forced_move = self.move_id
 
     def __repr__(self) -> str:
-        return f"Set next move to {self.move_id}"
+        return ""
 
 class AcidSlimeSmall(ScriptedEnemy):
     def __init__(self, game_state: GameState):
@@ -901,7 +901,7 @@ class GuardianOffensiveModeAction(Action):
         by.forced_move = "whirlwind"
 
     def __repr__(self) -> str:
-        return "Enter Offensive Mode"
+        return ""
 
 class TheGuardian(ScriptedEnemy):
     def __init__(self, game_state: GameState):

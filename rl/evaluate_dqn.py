@@ -17,6 +17,7 @@ def load_agent(path: str, env: MiniSTSEnv, device: str | None = None) -> DQNAgen
         observation_size=env.observation_size,
         action_size=env.action_size,
         hidden_size=int(checkpoint.get("hidden_size", 128)),
+        double_dqn=bool(checkpoint.get("double_dqn", False)),
         device=device,
     )
     agent.online.load_state_dict(checkpoint["online"])
@@ -119,6 +120,7 @@ def main() -> None:
     experiment_config = ExperimentConfig.load(pre_args.config)
     evaluation_config = experiment_config.section("evaluation")
     env_config = experiment_config.section("env")
+    reward_config = experiment_config.section("reward")
 
     parser = argparse.ArgumentParser(parents=[pre_parser])
     parser.add_argument("--checkpoint", default=evaluation_config.get("checkpoint", "rl_runs/dqn_scenario5_jawworm.pt"))
@@ -126,6 +128,7 @@ def main() -> None:
     parser.add_argument("--trace", action="store_true", default=evaluation_config.get("trace", False))
     parser.add_argument("--enemy", default=env_config.get("enemy", "BigJawWorm"))
     parser.add_argument("--ascension", type=int, default=env_config.get("ascension", 0))
+    parser.add_argument("--damage-reward-scale", type=float, default=reward_config.get("damage_reward_scale", 1.0))
     parser.add_argument("--device", default=evaluation_config.get("device"))
     args = parser.parse_args()
 
@@ -144,6 +147,7 @@ def main() -> None:
         deck=deck,
         max_steps=int(env_config.get("max_steps", 200)),
         ascension=args.ascension,
+        damage_reward_scale=args.damage_reward_scale,
     )
     agent = load_agent(args.checkpoint, env, args.device)
 

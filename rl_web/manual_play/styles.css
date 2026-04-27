@@ -297,6 +297,13 @@ h1 {
   gap: 8px;
 }
 
+.action-history {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  margin-left: auto;
+  overflow-wrap: anywhere;
+}
+
 .action-chip {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -327,5 +334,9 @@ h1 {
   .action-bar {
     margin: 0 -12px -12px;
     padding: 10px 12px;
+  }
+
+  .action-history {
+    margin-left: 0;
   }
 }

@@ -23,23 +23,27 @@
     "max_turns": 20,
     "max_hand_size": 10
   },
+  "reward": {
+    "damage_reward_scale": 1.0
+  },
   "training": {
     "episodes": 1500,
-    "batch_size": 64,
-    "replay_size": 50000,
-    "hidden_size": 128,
-    "learning_rate": 0.001,
+    "batch_size": 128,
+    "replay_size": 100000,
+    "hidden_size": 256,
+    "learning_rate": 0.0003,
     "gamma": 0.99,
     "epsilon_start": 1.0,
-    "epsilon_end": 0.05,
-    "epsilon_fraction": 0.6,
-    "target_sync_steps": 200,
-    "log_every": 50,
+    "epsilon_end": 0.03,
+    "epsilon_fraction": 0.8,
+    "target_sync_steps": 500,
+    "log_every": 100,
     "seed": 0,
-    "save_path": "rl_runs/dqn_scenario5_jawworm.pt"
+    "double_dqn": false,
+    "save_path": "rl_runs/dqn_scenario5_guardian.pt"
   },
   "evaluation": {
-    "checkpoint": "rl_runs/dqn_scenario5_jawworm.pt",
+    "checkpoint": "rl_runs/dqn_scenario5_guardian.pt",
     "episodes": 100,
     "trace": false
   }

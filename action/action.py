@@ -35,7 +35,8 @@ class AndAction(Action):
             action.play(by, game_state, battle_state)
     
     def __repr__(self) -> str:
-        return ' and '.join([action.__repr__() for action in self.actions])
+        parts = [repr(action) for action in self.actions]
+        return ' and '.join(part for part in parts if part)
 
 class AddMana(Action):
     def __init__(self, val: Value):

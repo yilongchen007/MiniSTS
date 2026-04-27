@@ -58,18 +58,21 @@ class MiniSTSEnv:
         enemy_name: str = "BigJawWorm",
         deck: list[Card] | None = None,
         ascension: int = 0,
+        damage_reward_scale: float = 1.0,
     ):
         self.encoder = encoder or StateEncoder()
         self.max_steps = max_steps
         self.enemy_name = enemy_name
         self.deck = deck
         self.ascension = ascension
+        self.damage_reward_scale = damage_reward_scale
         self.bot = RLBattleBot()
         self.game_state: GameState | None = None
         self.battle_state: BattleState | None = None
         self.pending_hand_choice: PendingHandChoice | None = None
         self.steps = 0
         self.previous_player_health = 0
+        self.previous_enemy_health = 0
 
     @property
     def observation_size(self) -> int:
@@ -92,6 +95,7 @@ class MiniSTSEnv:
         self.battle_state.turn_phase = 0
         self.battle_state.draw_hand()
         self.previous_player_health = self.battle_state.player.health
+        self.previous_enemy_health = self._enemy_health_total()
         return self.observe()
 
     def _create_enemies(self):
@@ -180,7 +184,7 @@ class MiniSTSEnv:
         if self.pending_hand_choice is None and action.action_type == RLActionType.CHOOSE_HAND_CARD:
             return StepResult(self.observe(), -1.0, True, {"invalid_action": action_index})
 
-        previous_health = self.battle_state.player.health
+        previous_enemy_health = self._enemy_health_total()
         if self.pending_hand_choice is not None:
             assert action.hand_index is not None
             pending = self.pending_hand_choice
@@ -195,8 +199,9 @@ class MiniSTSEnv:
 
         self.steps += 1
         done = self.battle_state.ended() or self.steps >= self.max_steps
-        reward = self._reward(previous_health, done)
+        reward = self._reward(previous_enemy_health)
         self.previous_player_health = self.battle_state.player.health
+        self.previous_enemy_health = self._enemy_health_total()
         return StepResult(self.observe(), reward, done, {"result": self.battle_state.get_end_result()})
 
     def _play_card_or_start_pending(self, hand_index: int) -> None:
@@ -340,18 +345,14 @@ class MiniSTSEnv:
 
         self._set_pending_hand_choice("duplicate_hand_card", hand_indices, resolve)
 
-    def _reward(self, previous_health: int, done: bool) -> float:
+    def _enemy_health_total(self) -> int:
         assert self.battle_state is not None
-        player = self.battle_state.player
-        health_loss = max(0, previous_health - player.health)
-        reward = -health_loss / player.max_health
+        return sum(enemy.health for enemy in self.battle_state.enemies)
 
-        if not done:
-            return reward
+    def _enemy_max_health_total(self) -> int:
+        assert self.battle_state is not None
+        return max(1, sum(enemy.max_health for enemy in self.battle_state.enemies))
 
-        result = self.battle_state.get_end_result()
-        if result == 1:
-            return reward + 1.0
-        if result == -1:
-            return reward - 1.0
-        return reward - 0.5
+    def _reward(self, previous_enemy_health: int) -> float:
+        damage_dealt = max(0, previous_enemy_health - self._enemy_health_total())
+        return self.damage_reward_scale * damage_dealt / self._enemy_max_health_total()
