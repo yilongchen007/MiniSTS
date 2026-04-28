@@ -87,6 +87,15 @@ class PPOAgent:
             logits = logits.masked_fill(~mask, -1e9)
         return int(torch.argmax(logits, dim=1).item())
 
+    def predict(self, observation: np.ndarray, legal_mask: np.ndarray) -> tuple[np.ndarray, float]:
+        obs = torch.as_tensor(observation, dtype=torch.float32, device=self.device).unsqueeze(0)
+        mask = torch.as_tensor(legal_mask, dtype=torch.bool, device=self.device).unsqueeze(0)
+        with torch.no_grad():
+            logits, value = self.model(obs)
+            logits = logits.masked_fill(~mask, -1e9)
+            policy = torch.softmax(logits, dim=1).squeeze(0).cpu().numpy()
+        return policy.astype(np.float32), float(value.item())
+
     def value(self, observation: np.ndarray, legal_mask: np.ndarray) -> float:
         obs = torch.as_tensor(observation, dtype=torch.float32, device=self.device).unsqueeze(0)
         mask = torch.as_tensor(legal_mask, dtype=torch.bool, device=self.device).unsqueeze(0)

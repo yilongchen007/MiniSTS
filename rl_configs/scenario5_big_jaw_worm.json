@@ -1,6 +1,6 @@
 {
   "env": {
-    "enemy": "Lagavulin",
+    "enemy": "TheGuardian",
     "ascension": 20,
     "max_steps": 200
   },
@@ -13,7 +13,7 @@
     {"name": "Strike"},
     {"name": "Strike"},
     {"name": "Strike"},
-    {"name": "Strike"},
+    {"name": "Bludgeon"},
     {"name": "Bloodletting"},
     {"name": "True_Grit", "upgrades": 1},
     {"name": "Pommel Strike", "upgrades": 1}
@@ -72,6 +72,48 @@
     "seed": 0,
     "trace": false
   },
+  "ppo_puct": {
+    "simulations": 30,
+    "c_puct": 1.5,
+    "gamma": 0.99,
+    "temperature": 0.000001,
+    "value_scale": 1.0,
+    "value_transform": "tanh",
+    "seed": 0,
+    "quiet": false
+  },
+  "dqn_mcts": {
+    "simulations": 30,
+    "rollout_depth": 60,
+    "exploration": 1.4,
+    "gamma": 0.99,
+    "eval_weight": 1.0,
+    "rollout_epsilon": 0.0,
+    "q_scale": 1.0,
+    "q_transform": "raw",
+    "seed": 0,
+    "quiet": false
+  },
+  "distill": {
+    "episodes": 500,
+    "teacher": "heuristic_mcts",
+    "simulations": 80,
+    "rollout_depth": 60,
+    "exploration": 1.4,
+    "gamma": 0.99,
+    "eval_weight": 1.0,
+    "rollout_policy": "heuristic",
+    "batch_size": 128,
+    "replay_size": 100000,
+    "hidden_size": 256,
+    "learning_rate": 0.0003,
+    "updates_per_step": 1,
+    "target_sync_episodes": 10,
+    "log_every": 25,
+    "seed": 0,
+    "double_dqn": false,
+    "save_path": "rl_runs/dqn_mcts_distill.pt"
+  },
   "az": {
     "episodes": 200,
     "simulations": 80,
@@ -79,7 +121,7 @@
     "c_puct": 1.5,
     "temperature": 1.0,
     "gamma": 0.99,
-    "network_value_weight": 1,
+    "network_value_weight": 0.5,
     "hidden_size": 256,
     "learning_rate": 0.0003,
     "batch_size": 256,
