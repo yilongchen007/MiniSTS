@@ -332,14 +332,15 @@ class AcidSlimeSmall(ScriptedEnemy):
     def choose_move(self, game_state: GameState, battle_state: BattleState) -> tuple[str, Action]:
         tackle = DealAttackDamage(ConstValue(self.attack_damage)).To(PlayerAgentTarget())
         lick = ApplyStatus(ConstValue(1), StatusEffectRepo.WEAK).To(PlayerAgentTarget())
+        if game_state.ascention >= 17:
+            if self.last_move("lick"):
+                return "tackle", tackle
+            return "lick", lick
         if random.randrange(100) < 50:
             if self.last_two_moves("tackle"):
                 return "lick", lick
             return "tackle", tackle
-        if game_state.ascention >= 17:
-            if self.last_move("lick"):
-                return "tackle", tackle
-        elif self.last_two_moves("lick"):
+        if self.last_two_moves("lick"):
             return "tackle", tackle
         return "lick", lick
 
@@ -467,7 +468,7 @@ class AcidSlimeLarge(ScriptedEnemy):
             if self.last_two_moves("corrosive_spit"):
                 return ("tackle", tackle) if random.random() < 0.5 else ("lick", lick)
             return "corrosive_spit", spit
-        if roll < 80:
+        if roll < 70:
             if self.last_two_moves("tackle"):
                 return ("corrosive_spit", spit) if random.random() < 0.5 else ("lick", lick)
             return "tackle", tackle
@@ -480,7 +481,7 @@ class SpikeSlimeLarge(ScriptedEnemy):
         hp = RandomUniformRange(64, 70) if game_state.ascention < 7 else RandomUniformRange(67, 73)
         super().__init__("SpikeSlime(L)", hp.get())
         self.attack_damage = 16 if game_state.ascention < 2 else 18
-        self.frail_amount = 1
+        self.frail_amount = 2 if game_state.ascention < 17 else 3
 
     def get_damaged(self, amount: int) -> int:
         dealt = super().get_damaged(amount)
@@ -705,38 +706,43 @@ class GremlinThief(ScriptedEnemy):
 
 class GremlinTsundere(ScriptedEnemy):
     def __init__(self, game_state: GameState):
-        hp = RandomUniformRange(13, 17) if game_state.ascention < 7 else RandomUniformRange(14, 18)
+        hp = RandomUniformRange(12, 15) if game_state.ascention < 7 else RandomUniformRange(13, 17)
         super().__init__("ShieldGremlin", hp.get())
-        self.block_amount = 7 if game_state.ascention < 17 else 11
+        self.block_amount = 7 if game_state.ascention < 7 else 8 if game_state.ascention < 17 else 11
+        self.bash_damage = 6 if game_state.ascention < 2 else 8
 
     def choose_move(self, game_state: GameState, battle_state: BattleState) -> tuple[str, Action]:
-        return "protect", ShieldAllEnemiesAction(self.block_amount)
+        living_enemies = [enemy for enemy in battle_state.enemies if not enemy.is_dead()]
+        if len(self.move_history) == 0 or len(living_enemies) > 1:
+            return "protect", ShieldRandomEnemyAction(self.block_amount)
+        return "bash", DealAttackDamage(ConstValue(self.bash_damage)).To(PlayerAgentTarget())
 
 class GremlinWizard(ScriptedEnemy):
     def __init__(self, game_state: GameState):
-        hp = RandomUniformRange(23, 25) if game_state.ascention < 7 else RandomUniformRange(24, 26)
+        hp = RandomUniformRange(21, 25) if game_state.ascention < 7 else RandomUniformRange(22, 26)
         super().__init__("GremlinWizard", hp.get())
         self.attack_damage = 25 if game_state.ascention < 2 else 30
         self.fast_recharge = game_state.ascention >= 17
 
     def choose_move(self, game_state: GameState, battle_state: BattleState) -> tuple[str, Action]:
-        if self.fast_recharge and len(self.move_history) >= 3:
+        if self.fast_recharge and len(self.move_history) >= 2:
             return "ultimate_blast", DealAttackDamage(ConstValue(self.attack_damage)).To(PlayerAgentTarget())
-        if len(self.move_history) % 4 < 3:
+        if len(self.move_history) < 2 or (len(self.move_history) - 2) % 4 != 0:
             return "charging", NoAction()
         return "ultimate_blast", DealAttackDamage(ConstValue(self.attack_damage)).To(PlayerAgentTarget())
 
-class ShieldAllEnemiesAction(Action):
+class ShieldRandomEnemyAction(Action):
     def __init__(self, amount: int):
         super().__init__()
         self.amount = amount
 
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState) -> None:
-        for enemy in battle_state.enemies:
-            battle_state.gain_block(enemy, self.amount)
+        candidates = [enemy for enemy in battle_state.enemies if not enemy.is_dead()]
+        if candidates:
+            battle_state.gain_block(random.choice(candidates), self.amount)
 
     def __repr__(self) -> str:
-        return f"Add {self.amount} block to all enemies"
+        return f"Add {self.amount} block to a random enemy"
 
 class GremlinNob(ScriptedEnemy):
     def __init__(self, game_state: GameState):

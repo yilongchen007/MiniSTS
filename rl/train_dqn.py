@@ -38,6 +38,7 @@ def train(args: argparse.Namespace) -> None:
         max_steps=args.max_steps,
         enemy_name=args.enemy,
         deck=deck,
+        relics=experiment_config.relic_names(),
         ascension=args.ascension,
         damage_reward_scale=args.damage_reward_scale,
         hp_loss_penalty_scale=args.hp_loss_penalty_scale,

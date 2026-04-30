@@ -141,6 +141,15 @@ class ExperimentConfig:
 
         return build_deck(DEFAULT_DECK)
 
+    def relic_names(self) -> list[str]:
+        specs = self.raw.get("relics", [])
+        if not isinstance(specs, list):
+            raise ValueError("Config field 'relics' must be a list.")
+        for spec in specs:
+            if not isinstance(spec, str):
+                raise ValueError(f"Relic spec must be a string, got: {spec!r}")
+        return list(specs)
+
 
 def build_deck(specs: Any) -> list[Card]:
     if not isinstance(specs, list):

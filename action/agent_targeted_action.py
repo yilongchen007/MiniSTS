@@ -62,13 +62,9 @@ class DealAttackDamage(AgentTargeted):
         self.times = times
     
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState, target: Agent) -> None:
-        self.event.broadcast_before((by, game_state, battle_state, target))
         amount = self.val.get()
-        amount = self.event.broadcast_apply(amount, (by, game_state, battle_state, target))
         times = self.times.get()
-        for _ in range(times):
-            battle_state.deal_attack_damage(by, target, round(amount))
-        self.event.broadcast_after((by, game_state, battle_state, target))
+        battle_state.deal_attack_damage(by, target, amount, times)
     
     def __repr__(self) -> str:
         if self.times.peek() != 1:
@@ -135,11 +131,11 @@ class Reaper(AgentTargeted):
         healed = 0
         for target in list(targets):
             healed += battle_state.deal_attack_damage(by, target, self.damage.get())
-        by.get_healed(healed)
+        battle_state.heal(by, healed)
 
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState, target: Agent) -> None:
         healed = battle_state.deal_attack_damage(by, target, self.damage.get())
-        by.get_healed(healed)
+        battle_state.heal(by, healed)
 
     def __repr__(self) -> str:
         return f"Deal {self.damage.peek()} to enemies; heal unblocked damage"
@@ -241,7 +237,7 @@ class Heal(AgentTargeted):
         self.val = val
     
     def play(self, by: Agent, game_state: GameState, battle_state: BattleState, target: Agent) -> None:
-        target.get_healed(self.val.get())
+        battle_state.heal(target, self.val.get())
     
     def __repr__(self) -> str:
         return f"Apply {self.val.peek()} heal"

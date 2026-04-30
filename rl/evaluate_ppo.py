@@ -103,6 +103,7 @@ def main() -> None:
         encoder=encoder,
         enemy_name=args.enemy,
         deck=deck,
+        relics=experiment_config.relic_names(),
         max_steps=int(env_config.get("max_steps", 200)),
         ascension=args.ascension,
         damage_reward_scale=args.damage_reward_scale,

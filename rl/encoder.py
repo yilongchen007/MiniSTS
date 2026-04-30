@@ -60,6 +60,22 @@ INTENT_FEATURE_NAMES = (
     "intent_is_defensive_mode",
 )
 
+RELIC_NAMES = (
+    "Anchor",
+    "Bag of Preparation",
+    "Bronze Scales",
+    "Happy Flower",
+    "Lantern",
+    "Nunchaku",
+    "Oddly Smooth Stone",
+    "Orichalcum",
+    "Paper Phrog",
+    "Pen Nib",
+    "Preserved Insect",
+    "Red Skull",
+    "Vajra",
+)
+
 
 @dataclass(frozen=True)
 class StateEncoder:
@@ -69,6 +85,7 @@ class StateEncoder:
     max_hand_size: int = 10
     card_names: tuple[str, ...] = CARD_NAMES
     intent_names: tuple[str, ...] = INTENT_NAMES
+    relic_names: tuple[str, ...] = RELIC_NAMES
 
     @property
     def size(self) -> int:
@@ -77,6 +94,7 @@ class StateEncoder:
         hand_slot_count = self.max_hand_size * (len(self.card_names) + 1 + 3)
         pile_count = len(self.card_names) * 2 * 3
         pending_hand_choice_count = 2 + len(HAND_CHOICE_PURPOSES) + self.max_hand_size
+        relic_count = len(self.relic_names) * 2
         return (
             scalar_count
             + status_count
@@ -84,6 +102,7 @@ class StateEncoder:
             + pile_count
             + len(INTENT_FEATURE_NAMES)
             + pending_hand_choice_count
+            + relic_count
         )
 
     def encode(self, battle_state, pending_hand_choice=None) -> np.ndarray:
@@ -113,6 +132,7 @@ class StateEncoder:
         features.extend(self._intent_numeric_features(intent))
 
         features.extend(self._pending_hand_choice_features(pending_hand_choice))
+        features.extend(self._relic_features(battle_state))
 
         return np.array(features, dtype=np.float32)
 
@@ -162,6 +182,20 @@ class StateEncoder:
             + [1.0 if purpose == name else 0.0 for name in HAND_CHOICE_PURPOSES]
             + [1.0 if index in hand_indices else 0.0 for index in range(self.max_hand_size)]
         )
+
+    def _relic_features(self, battle_state) -> list[float]:
+        relics = {relic.name: relic for relic in battle_state.game_state.relics}
+        features: list[float] = []
+        for name in self.relic_names:
+            relic = relics.get(name)
+            features.append(1.0 if relic is not None else 0.0)
+            if relic is None:
+                features.append(0.0)
+                continue
+            counter = float(getattr(relic, "counter", 0)) / 10.0
+            active = 1.0 if bool(getattr(relic, "active", False)) else 0.0
+            features.append(max(counter, active))
+        return features
 
     def _intent_numeric_features(self, intent: str) -> list[float]:
         attack_total = 0

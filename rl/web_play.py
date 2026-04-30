@@ -53,6 +53,7 @@ def build_env(config_path: str, enemy: str | None, ascension: int | None, max_st
         max_steps=int(max_steps if max_steps is not None else env_config.get("max_steps", 200)),
         enemy_name=str(enemy if enemy is not None else env_config.get("enemy", "BigJawWorm")),
         deck=deck,
+        relics=experiment_config.relic_names(),
         ascension=int(ascension if ascension is not None else env_config.get("ascension", 0)),
     )
 

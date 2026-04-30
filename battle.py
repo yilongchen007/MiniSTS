@@ -63,6 +63,8 @@ class BattleState:
         self.player_hp_lost_this_combat = 0
         self.verbose = verbose
         self.log_filename = log_filename
+        for relic in self.game_state.relics:
+            relic.at_battle_start(self.game_state, self)
 
     def copy_undeterministic(self) -> BattleState:
         battle_state_copy = copy.deepcopy(self)
@@ -136,7 +138,11 @@ class BattleState:
     def play_card(self, card_index: int):
         assert card_index < len(self.hand) and card_index >= 0, "Card index {} out of range for hand {}".format(card_index, self.hand)
         card = self.hand.pop(card_index)
+        for relic in self.game_state.relics:
+            relic.on_card_play(card, self.game_state, self)
         card.play(self.game_state, self)
+        for relic in self.game_state.relics:
+            relic.after_card_play(card, self.game_state, self)
         BattleState.card_play_event.broadcast_after((self.player, self.game_state, self, card))
         double_tap = self.player.status_effect_state.get(StatusEffectRepo.DOUBLE_TAP)
         if card.card_type == CardType.ATTACK and double_tap > 0 and not self.ended():
@@ -196,18 +202,44 @@ class BattleState:
             self.player_hp_lost_this_combat += lost
         if lost > 0:
             BattleState.hp_loss_event.broadcast_after((target, self.game_state, self, lost, from_card))
+            for relic in self.game_state.relics:
+                relic.on_hp_loss(target, lost, from_card, self.game_state, self)
         return lost
 
-    def deal_attack_damage(self, attacker: Agent, target: Agent, amount: int):
+    def heal(self, target: Agent, amount: int):
+        before = target.health
+        target.get_healed(amount)
+        healed = target.health - before
+        if healed > 0:
+            for relic in self.game_state.relics:
+                relic.on_heal(target, healed, self.game_state, self)
+        return healed
+
+    def apply_attack_damage(self, attacker: Agent, target: Agent, amount: int):
         dealt = target.get_damaged(amount)
         if target is self.player:
             self.player_hp_lost_this_combat += dealt
         if amount > 0:
             BattleState.attacked_event.broadcast_after((target, self.game_state, self, attacker, amount))
+            for relic in self.game_state.relics:
+                relic.on_attacked(target, attacker, amount, self.game_state, self)
         if target.is_dead() and hasattr(target, "on_death"):
             target.on_death(self.game_state, self)
             self.enemies = [enemy for enemy in self.enemies if not enemy.is_dead()]
         return dealt
+
+    def deal_attack_damage(self, attacker: Agent, target: Agent, amount: int, times: int = 1):
+        from action.agent_targeted_action import DealAttackDamage
+
+        DealAttackDamage.event.broadcast_before((attacker, self.game_state, self, target))
+        modified_amount = DealAttackDamage.event.broadcast_apply(amount, (attacker, self.game_state, self, target))
+        for relic in self.game_state.relics:
+            modified_amount = relic.modify_attack_damage(modified_amount, attacker, target, self.game_state, self)
+        total_dealt = 0
+        for _ in range(times):
+            total_dealt += self.apply_attack_damage(attacker, target, round(modified_amount))
+        DealAttackDamage.event.broadcast_after((attacker, self.game_state, self, target))
+        return total_dealt
 
     def discard(self, card: Card):
         if card in self.discard_pile:
@@ -301,6 +333,22 @@ class BattleState:
     def _end_agent_turn(self, agent: Agent, other_side: list[Agent]):
         BattleState.side_turn_event.broadcast_after((agent, self.game_state, self, other_side))
         BattleState.turn_end_event.broadcast_after((agent, self.game_state, self, other_side))
+        for relic in self.game_state.relics:
+            relic.at_turn_end(agent, self.game_state, self)
+
+    def _start_player_relics(self):
+        for relic in self.game_state.relics:
+            relic.at_turn_start(self.player, self.game_state, self)
+
+    def start_player_turn(self):
+        self.mana = self.game_state.max_mana
+        self.turn += 1
+        self.turn_phase = 0
+        self.agent_turn_ended = False
+        self._start_agent_turn(self.player, [enemy for enemy in self.enemies])
+        self.player_turn_started = True
+        self._start_player_relics()
+        self.draw_hand()
     
     def _play_side(self, side: list[Agent], other_side: list[Agent]):
         for agent in side:
@@ -330,6 +378,7 @@ class BattleState:
         if not self.player_turn_started:
             self._start_agent_turn(self.player, other_side)
             self.player_turn_started = True
+            self._start_player_relics()
         action.play(self.player, self.game_state, self)
         self.enemies: list[Enemy] = [enemy for enemy in self.enemies if not enemy.is_dead()]
         if not self.agent_turn_ended:
@@ -343,12 +392,7 @@ class BattleState:
             enemy.clear_block()
         self._play_side([enemy for enemy in self.enemies], [self.player])
         self.discard_hand()
-        self.mana = self.game_state.max_mana
-        self.turn += 1
-        self.turn_phase = 0
-        self.draw_hand()
-        self.agent_turn_ended = False
-        self.player_turn_started = False
+        self.start_player_turn()
         return True
         
     def ended(self):

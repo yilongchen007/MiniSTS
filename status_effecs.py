@@ -365,9 +365,10 @@ def vigor_after(_, additional_info: tuple[Agent, GameState, BattleState, Agent])
     by.status_effect_state.remove_status(StatusEffectRepo.VIGOR)
 
 def vulnerable_apply(amount: int, additional_info: tuple[Agent, GameState, BattleState, Agent]):
-    _, _, _, target = additional_info
+    by, game_state, _, target = additional_info
     if target.status_effect_state.get(StatusEffectRepo.VULNERABLE) > 0:
-        amount = int(amount * 1.5)
+        multiplier = 1.75 if by is game_state.player and game_state.has_relic("Paper Phrog") else 1.5
+        amount = int(amount * multiplier)
     return amount
 
 def weak_apply(amount: int, additional_info: tuple[Agent, GameState, BattleState, Agent]):

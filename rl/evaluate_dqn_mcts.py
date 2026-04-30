@@ -25,6 +25,7 @@ def build_env(args: argparse.Namespace, experiment_config: ExperimentConfig) -> 
         encoder=encoder,
         enemy_name=args.enemy,
         deck=deck,
+        relics=experiment_config.relic_names(),
         max_steps=args.max_steps,
         ascension=args.ascension,
         damage_reward_scale=float(reward_config.get("damage_reward_scale", 1.0)),

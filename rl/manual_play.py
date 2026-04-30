@@ -106,6 +106,7 @@ def build_env(args: argparse.Namespace) -> MiniSTSEnv:
         max_steps=args.max_steps,
         enemy_name=args.enemy,
         deck=deck,
+        relics=experiment_config.relic_names(),
         ascension=args.ascension,
     )
 

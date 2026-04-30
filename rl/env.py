@@ -57,6 +57,7 @@ class MiniSTSEnv:
         max_steps: int = 200,
         enemy_name: str = "BigJawWorm",
         deck: list[Card] | None = None,
+        relics: list[str] | None = None,
         ascension: int = 0,
         damage_reward_scale: float = 1.0,
         hp_loss_penalty_scale: float = 1.0,
@@ -68,6 +69,7 @@ class MiniSTSEnv:
         self.max_steps = max_steps
         self.enemy_name = enemy_name
         self.deck = deck
+        self.relics = list(relics or [])
         self.ascension = ascension
         self.damage_reward_scale = damage_reward_scale
         self.hp_loss_penalty_scale = hp_loss_penalty_scale
@@ -97,12 +99,10 @@ class MiniSTSEnv:
         self.pending_hand_choice = None
         self.game_state = GameState(Character.IRON_CLAD, self.bot, self.ascension)
         self.game_state.set_deck(*(self.deck if self.deck is not None else build_deck(DEFAULT_DECK)))
+        self.game_state.set_relics(*self.relics)
         self.battle_state = BattleState(self.game_state, *self._create_enemies(), verbose=Verbose.NO_LOG)
         self.steps = 0
-        self.battle_state.mana = self.game_state.max_mana
-        self.battle_state.turn = 1
-        self.battle_state.turn_phase = 0
-        self.battle_state.draw_hand()
+        self.battle_state.start_player_turn()
         self.initial_enemy_max_health = self._enemy_max_health_total()
         self.previous_player_health = self.battle_state.player.health
         self.previous_enemy_health = self._enemy_health_total()

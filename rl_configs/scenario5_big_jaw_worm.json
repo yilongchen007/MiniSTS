@@ -18,6 +18,7 @@
     {"name": "True_Grit", "upgrades": 1},
     {"name": "Pommel Strike", "upgrades": 1}
   ],
+  "relics": ["Anchor"],
   "encoder": {
     "max_turns": 20,
     "max_hand_size": 10
